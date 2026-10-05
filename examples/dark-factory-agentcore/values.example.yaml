@@ -19,7 +19,7 @@ trigger:
 agentcore:
   region: us-west-2
   namespace: agent-sandbox-system
-  # sandboxName is injected by task demo-agentcore from the cluster name.
+  # sandboxName is injected by task demo-agentcore (Taskfile var AGENTCORE_SANDBOX, default coder).
 
 # The runtime image uses the shared coder's default CLI (Claude Code). Engine
 # selection is configured in the runtime image, not in this example's payload.

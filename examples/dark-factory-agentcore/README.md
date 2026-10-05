@@ -16,7 +16,8 @@ cp examples/dark-factory-agentcore/values.example.yaml examples/dark-factory-age
 
 Edit `trigger.argoEvents.repositories`, `trigger.argoEvents.webhookUrl`, and
 `agentcore.region`. `task demo-agentcore` injects `agentcore.sandboxName` from the
-cluster name; it must match the platform's `AgentCoreSandbox` instance.
+Taskfile var `AGENTCORE_SANDBOX` (default `coder`); it must match the platform's
+`AgentCoreSandbox` instance created by the `agentcore/` chart.
 
 The chart contains a shared subchart. Repeat overrides for shared settings, such
 as `trigger`, `github`, `iterate`, and review gates, under `dark-factory-shared:`

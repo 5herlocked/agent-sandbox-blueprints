@@ -19,6 +19,11 @@ vars:
   GITOPS_DIR: infrastructure/gitops
   # Pinned: AWS Lambda MicroVM is only available in select regions.
   REGION: '{{.REGION | default "us-west-2"}}'
+  # The AgentCoreSandbox instance the agentcore chart creates (agentcore/values.yaml
+  # agentcore.sandbox.name) and its namespace. agentcore-v2 and demo-agentcore both
+  # look it up by this name, so it lives in ONE place.
+  AGENTCORE_SANDBOX: coder
+  AGENTCORE_NAMESPACE: agent-sandbox-system
 
 env:
   AWS_REGION: "{{.REGION}}"
@@ -177,8 +182,8 @@ tasks:
       # when ACK exposes AgentRuntime.spec.platformVersion after its SDK bump.
       - |
         set -euo pipefail
-        SANDBOX='coder' # agentcore/values.yaml: agentcore.sandbox.name
-        NS='agent-sandbox-system'
+        SANDBOX='{{.AGENTCORE_SANDBOX}}'
+        NS='{{.AGENTCORE_NAMESPACE}}'
         WANT='{{.AGENTCORE_PLATFORM_VERSION | default "V2"}}'
         echo "Waiting for AgentCoreSandbox $NS/$SANDBOX and its runtime ID"
         ID=''
@@ -381,9 +386,12 @@ tasks:
         # because it is polling for a resource that will never exist.
         add microvm.image.name "$CLUSTER"
         if [ '{{.EXAMPLE}}' = dark-factory-agentcore ]; then
-          # The platform chart creates AgentCoreSandbox "coder", NOT "$CLUSTER".
+          # Unlike Lambda's MicrovmImage (account-scoped, so keyed to the cluster),
+          # the AgentCoreSandbox is a namespaced k8s object with a fixed name; the
+          # AgentRuntime it creates is already cluster-unique (<cluster>_dark_factory).
           # The example's committed placeholder must resolve to that exact name.
-          add agentcore.sandboxName coder
+          add agentcore.sandboxName '{{.AGENTCORE_SANDBOX}}'
+          add agentcore.namespace '{{.AGENTCORE_NAMESPACE}}'
         fi
 
         echo "  cluster=$CLUSTER account=$ACCOUNT bifrost=${BIFROST_IP:-none} tag=$TAG"

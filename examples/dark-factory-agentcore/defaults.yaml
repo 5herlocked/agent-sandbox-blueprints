@@ -279,7 +279,7 @@ iterate:
 agentcore:
   region: us-west-2
   namespace: agent-sandbox-system     # where the AgentCoreSandbox instance lives
-  sandboxName: SET-BY-TASK-AGENTCORE   # task demo-agentcore injects the cluster name
+  sandboxName: SET-BY-TASK-AGENTCORE   # task demo-agentcore injects AGENTCORE_SANDBOX (default coder)
   # aws-cli v2 (has the bedrock-agentcore verbs); kubectl is fetched at step start.
   stepImage: public.ecr.aws/aws-cli/aws-cli:latest
   # Pod Identity permits one association per SA. Only invoke/stop use this SA;
