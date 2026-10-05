@@ -54,25 +54,35 @@ jobs:
       - name: Every chart renders
         run: task lint:render
 
-  # The two checks above are cheap and catch the mistakes that actually happened
-  # while building this repo. This one guards the specific trap that the three
-  # example values trees are duplicated by design (a subchart's values are not
-  # visible to parent templates), so an edit to one must be made to all three.
+  # Shared values must match in all three examples. AgentCore has different
+  # substrate-only keys; compare the common values as YAML, not raw bytes.
   values-in-sync:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: examples/_shared/values.yaml matches both defaults.yaml
+      - name: examples/_shared/values.yaml matches all three defaults.yaml
         run: |
           set -euo pipefail
-          fail=0
-          for ex in dark-factory-kata dark-factory-lambda; do
-            if diff -q examples/_shared/values.yaml "examples/$ex/defaults.yaml" >/dev/null; then
-              echo "✓ examples/$ex/defaults.yaml in sync"
-            else
-              echo "✗ examples/$ex/defaults.yaml has drifted from examples/_shared/values.yaml:"
-              diff examples/_shared/values.yaml "examples/$ex/defaults.yaml" || true
-              fail=1
-            fi
-          done
-          exit $fail
+          python3 -m venv /tmp/asb-ci-yaml
+          /tmp/asb-ci-yaml/bin/pip install --disable-pip-version-check PyYAML==6.0.2
+          /tmp/asb-ci-yaml/bin/python - <<'PY'
+          import sys
+          import yaml
+
+          with open('examples/_shared/values.yaml') as f:
+              shared = yaml.safe_load(f)
+          for key in ('microvm', 'agentcore', 'dark-factory-shared'):
+              shared.pop(key, None)
+          failed = False
+          for ex in ('dark-factory-kata', 'dark-factory-lambda', 'dark-factory-agentcore'):
+              with open(f'examples/{ex}/defaults.yaml') as f:
+                  values = yaml.safe_load(f)
+              for key in ('microvm', 'agentcore', 'dark-factory-shared'):
+                  values.pop(key, None)
+              if values == shared:
+                  print(f'✓ examples/{ex}/defaults.yaml common values in sync')
+              else:
+                  print(f'✗ examples/{ex}/defaults.yaml common values differ from _shared')
+                  failed = True
+          sys.exit(failed)
+          PY
