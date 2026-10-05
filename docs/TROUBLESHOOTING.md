@@ -37,6 +37,16 @@ Symptom → cause → fix, for the failures that actually happen. Ordered by lay
 | KRO graph stuck `Inactive` (cache sync timeout) | Managed KRO only watches the **`kro.run`** API group | The RGD's `schema.group` must be `kro.run` |
 | suspend/resume flapping until the VM dies | Two owners pointing at one VM with conflicting intent | One VM per unit of work; key the CR name to the issue |
 
+## AgentCore Runtime
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| ACK `AgentRuntime` stays `ACK.Recoverable` on `iam:GetRole` | Managed ACK `iam` does not allow the AgentCore execution/controller/invoker role name | Check `infrastructure/terraform/capabilities.tf` AgentCore role patterns and `iam:PassRole` grants; apply the Terraform change before retrying ACK |
+| `invoke-agent-runtime` returns 409 | A coder is already running in that session; the host permits one coder per session | Check the old workflow/session, stop it if its result is ambiguous, then invoke with a **new** workflow UID/session ID |
+| V2 runtime never reaches `READY` | Container did not answer `GET /ping` within 120 seconds, or snapshot preparation failed | Inspect `/aws/bedrock-agentcore/runtimes/` in CloudWatch; confirm the arm64 host binds `0.0.0.0:8080` and answers `Healthy` at startup |
+| `update-agent-runtime` returns `ConflictException` | A prior create/update/delete is still in progress | Poll `aws bedrock-agentcore-control get-agent-runtime --agent-runtime-id <id> --query status`; retry only in a terminal state (`READY` or a `*FAILED` status), and investigate failure before retrying |
+| VPC mode reaches `CREATE_FAILED` | Chosen private subnets are in AZs unsupported by AgentCore Runtime | Choose AgentCore-supported AZs for `private_subnet_ids`; check Terraform's `agentcore_security_group_id` and re-run `AGENTCORE_NETWORK_MODE=VPC task agentcore` |
+
 ## Pipeline
 
 | Symptom | Cause | Fix |

@@ -57,6 +57,8 @@ installed and usable for stateless workloads, but not for the Dark Factory pipel
 | Long-lived workspaces (remote IDE) | The Kata substrate + a persistent volume is most of a Coder/Gitpod-style dev environment; `code-server` in the sandbox is a small step |
 | GPU sandboxes | `kata-qemu` + VFIO on a nested-virt GPU family, for agents that need inference locally |
 | Cost reporting per run | Attribute Bedrock tokens + compute minutes to a PR, so the economics are visible |
+| AgentCore Runtime Instances (ACRI) and V2 in ACK | Ask `aws-controllers-k8s/bedrockagentcorecontrol-controller` maintainers to bump the SDK model so `CapacityProvider`, `capacityProviderConfiguration`, and `platformVersion` are declarative. Until then, [ACRI is a placeholder](../examples/dark-factory-agentcore-instances/README.md) and `task agentcore-v2` sets V2 after ACK creates the runtime. |
+| Gate WorkflowTemplate `templateRef` deduplication | Gate templates are copy-pasted across three WorkflowTemplates; `templateRef` dedup pending. Keep existing Kata and Lambda templates stable until this is done separately. |
 
 ## Non-goals
 
@@ -99,7 +101,7 @@ enabling the agent. Documented with the `kubectl` in [MANUAL-STEPS §5d](MANUAL-
 
 ### 3. `deploy-test` runs despite `enabled: false`
 
-It is defaulted off in all three values trees (the blueprint ships no deploy-test image
+It is defaulted off in all four values trees (the blueprint ships no deploy-test image
 and Terraform creates no ECR repo for one), yet it executed on a run and posted
 `dark-factory/deploy-test`. Harmless when it passes; misleading when it fails. **Root
 cause not established** — do not assume the flag works.
@@ -120,10 +122,12 @@ name fails permanently with `ConflictException`. Worked around by keying the ima
 bucket and roles to the cluster name. Revisit when the controller supports adoption, or
 goes GA under Managed ACK.
 
-### 6. The three example values trees are byte-identical duplicates
+### 6. The four example values trees duplicate common settings
 
 `examples/_shared/values.yaml` plus a `defaults.yaml` per example, because a subchart's
-values are invisible to parent templates. `task lint:deps` and CI guard the drift, but
+values are invisible to parent templates. AgentCore has separate substrate-only keys;
+CI compares the common fields across all three defaults, and `task lint:deps` checks
+the vendored shared chart. But
 the real fix is moving each example's WorkflowTemplate into the shared subchart behind a
 `substrate` value so there is one tree. The same split is why `task demo` must `--set`
 every value at **both** scopes.

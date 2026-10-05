@@ -6,10 +6,10 @@
 |---|---|---|
 | `terraform` | 1.7 | Creates the cluster and platform IAM |
 | `kubectl` | 1.30 | Applies substrates and examples |
-| `aws` CLI | v2 | Auth, EKS capabilities, MicroVM inspection |
+| `aws` CLI | v2 with `bedrock-agentcore-control` | Auth, EKS capabilities, MicroVM and AgentCore Runtime operations |
 | `helm` | 3.14 | Renders/validates charts locally |
 | [`task`](https://taskfile.dev) | 3 | The one entry point (`task up`, `task kata`, …) |
-| `docker` (with buildx) | — | Builds the agent image; **buildx needed for ARM64** if you use Lambda MicroVM |
+| `docker` (with buildx) | — | Builds the agent image; **buildx needed for ARM64** if you use Lambda MicroVM or AgentCore Runtime |
 | `gh` | — | Optional, convenient for creating the demo issue |
 
 `task preflight` checks the required ones and that your config files exist.
@@ -19,6 +19,16 @@
 **Region: `us-west-2`.** Pinned because AWS Lambda MicroVM is only available in select
 regions. The Kata-only path works anywhere nested-virtualization instances exist — change
 `region` in `terraform.tfvars` if you are skipping Lambda MicroVM.
+
+For AgentCore, confirm **AgentCore Runtime is enabled** in your target account
+and region. V2 (used by `task agentcore` after ACK creates the runtime) is
+available in `us-east-1`, `us-east-2`, `us-west-2`, `eu-west-1`, and
+`ap-northeast-1`. Build and push the shared coder for `linux/arm64` to the
+`coder_microvm` ECR repo, then run `task agentcore-image` for a digest-pinned
+host image. The self-managed ACK `bedrockagentcorecontrol-chart` v1.15.1 must
+be pullable from `public.ecr.aws/aws-controllers-k8s` by ArgoCD. VPC mode also
+requires `enable_agentcore_vpc=true` in Terraform and **private subnets in
+AgentCore-supported AZs**; PUBLIC is the default.
 
 ### EKS Managed capabilities
 
@@ -50,6 +60,7 @@ model call.
 | Elastic IPs | The VPC uses one for its NAT gateway |
 | VPCs per region | One is created |
 | AWS Lambda MicroVM limits | Preview service — concurrent MicroVMs may be limited per account |
+| AgentCore Runtime availability and concurrent sessions | Check this account and region before enabling the third substrate |
 
 **Nested virtualization:** Kata needs it, and not every instance family exposes it. The
 `nodepools` values list validated families; if provisioning fails with a capacity error,
@@ -81,6 +92,7 @@ magnitude, running continuously:
 | **NAT gateway** | Hourly + per-GB — often the biggest surprise on a small cluster |
 | Kata nodes | Karpenter-provisioned on demand; consolidate away when idle |
 | Lambda MicroVM | Per active minute — **suspended VMs are the point**, but a leaked non-terminated VM keeps billing |
+| AgentCore Runtime | Check runtime/session pricing for your region; coder sessions stop after each round |
 | Bedrock | Per token, per run |
 | ECR / S3 | Negligible at this scale |
 

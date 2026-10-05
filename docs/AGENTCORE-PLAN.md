@@ -1,6 +1,6 @@
 # Plan: Amazon Bedrock AgentCore Runtime as a third substrate
 
-> **Status:** PROPOSED, not implemented. Decisions recorded 2026-10-05.
+> **Status:** IMPLEMENTED (units A–F); live verification (§7 items 3–6) pending.
 > Design rule for this work: add a substrate, do not change the existing two.
 > Every new file is a sibling of an existing Kata or Lambda file and follows its
 > shape. The only shared files that change are the Sensor and `iterate.js`.

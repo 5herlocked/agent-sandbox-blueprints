@@ -1,14 +1,19 @@
-# Dark Factory — Substrate Benchmark: Kata micro-VM vs Lambda MicroVM
+# Dark Factory — Substrate comparison: Kata, Lambda MicroVM, AgentCore Runtime
 
-A side-by-side comparison of the two sandbox substrates that run the autonomous coder,
-measured on identical issues run through the same cluster.
+A side-by-side comparison of three substrates that run the autonomous coder.
+Kata and Lambda were measured on identical issues run through the same cluster.
+
+The Kata/Lambda timings below are measured runs. AgentCore Runtime has not been
+verified on a live deployment here; do not read its cells as benchmark results.
 
 - **Kata substrate — Kata micro-VM** (mature, default): the agent runs in a hardware-isolated Kata
   pod on a self-managed nested-virt EKS node group.
 - **Lambda MicroVM substrate — AWS Lambda MicroVM** (pre-GA): the agent runs in a Firecracker MicroVM
   provisioned via the `lambdamicrovms` ACK controller, driven by a bridge pod.
+- **AgentCore Runtime substrate — microVM compute**: the agent runs in a
+  disposable AgentCore session provisioned by an ACK `AgentRuntime` through KRO.
 
-Both run the **same `dark-factory-coder`** (same `entrypoint.js`), produce the same kind of
+All three run the **same `dark-factory-coder`** (same `entrypoint.js`), produce the same kind of
 PR, and go through the **same review gates** (AWS DevOps Agent + AWS Security Agent). The only
 difference is *where the agent executes* and *how it's provisioned*.
 
@@ -16,21 +21,22 @@ difference is *where the agent executes* and *how it's provisioned*.
 
 ## TL;DR
 
-| | Kata micro-VM (Kata substrate) | Lambda MicroVM (Lambda MicroVM substrate) |
-| --- | --- | --- |
-| **Workflow** | `df-run` (certified) | `df-run-lambda` (separate, MicroVM-native) |
-| **Provisioning** | pre-warmed pool → **instant claim** | **RunMicrovm cold-start per session** (~90s) |
-| **Time to first PR** (from label) | ~**2 min** | ~**2.5 min** |
-| **LLM path** | Bifrost gateway (in-cluster) + Langfuse traces | **Bedrock-direct** (exec role) — no cluster network |
-| **Scale-to-zero when idle** | ❌ node pool runs continuously | ✅ **suspend-to-zero** between PR and merge |
-| **Fix-round mechanic** | fresh pod each round | **resume the SAME suspended VM** (warm); recreate if the pre-GA resume fails |
-| **Infra to manage** | nested-virt node group (Karpenter/MNG) | none — serverless MicroVMs |
-| **Observability** | native `kubectl logs` | custom `/logs` HTTP endpoint (no runtime CloudWatch) |
-| **Maturity** | production-ready today | pre-GA (preview) — pilot-grade |
-| **Economics at 1000s scale** | pay for idle capacity | pay per active minute (the strategic win) |
+| | Kata micro-VM | Lambda MicroVM | AgentCore Runtime (microVM compute) |
+|---|---|---|---|
+| **Workflow** | `df-run` (certified) | `df-run-lambda` (separate, MicroVM-native) | `df-run-agentcore` (separate; not live-verified) |
+| **Provisioning** | pre-warmed pool → **instant claim** | **RunMicrovm cold-start per session** (~90s) | ACK + KRO create one runtime; V2 snapshot restores on each fresh session (no timing measured here) |
+| **Time to first PR** (from label) | ~**2 min** | ~**2.5 min** | Not measured here |
+| **LLM path** | Bifrost gateway (in-cluster) + Langfuse traces | **Bedrock-direct** (exec role) — no cluster network | **Bedrock-direct** (runtime execution role), in PUBLIC or VPC mode |
+| **Scale-to-zero when idle** | ❌ node pool runs continuously | ✅ **suspend-to-zero** between PR and merge | Session stops after coder; runtime remains available for later sessions |
+| **Fix-round mechanic** | fresh pod each round | **resume the SAME suspended VM** (warm); recreate if the pre-GA resume fails | New session each round; GitHub holds branch and review state |
+| **Infra to manage** | nested-virt node group (Karpenter/MNG) | none — serverless MicroVMs | ACK controller, one KRO runtime; no agent node pool |
+| **Observability** | native `kubectl logs` | custom `/logs` HTTP endpoint (no runtime CloudWatch) | AgentCore runtime CloudWatch logs |
+| **Maturity** | production-ready today | pre-GA (preview) — pilot-grade | Blueprint not live-verified |
+| **Limits** | Node pool and pod configuration | Service quotas | Factory reports 2 vCPU / 8 GB RAM / ~8 GB disk (not measured here) |
+| **When to pick** | In-cluster access and persistent workspaces | Serverless with suspend/resume | Disposable rounds and direct Bedrock; no retained workspace |
 
 **Bottom line:** at small scale the two feel equivalent (the LLM coding step ~2–4 min and the
-external review agents ~8–15 min dominate total time on *both*). The Lambda substrate's advantage
+external review agents ~8–15 min take most of the total time on *both*). The Lambda substrate's advantage
 is **not latency** — it's **operational + economic**: no node pool to run, and suspend-to-zero
 between the PR and the human's review/merge. Its cost is **maturity** (pre-GA control plane — resume
 from suspend is occasionally flaky, mitigated by the recreate-fallback) and the extra plumbing below.
@@ -57,29 +63,30 @@ identical code and takes the same time.
 | **drive-coder** (clone → LLM → push → PR) | ~60s |
 | suspend-microvm (VM → SUSPENDED, stays down) | ~5s |
 | holdout / deploy-test (terraform validate) | ~20–40s each |
-| security-agent + devops-gate (external) | ~8–15 min combined (dominates) |
+| security-agent + devops-gate (external) | ~8–15 min combined (takes most of the time) |
 | fix round: resume-or-recreate + coder re-run → new commit | ~2 min |
 
-*(The external review agents dominate total wall-clock on BOTH substrates. The MicroVM is SUSPENDED
+*(The external review agents take most of the wall-clock time on BOTH substrates. The MicroVM is SUSPENDED
 for the entire multi-minute review window — that idle time is free on Lambda, billed on Kata.)*
 
 ---
 
 ## Where the logs are
 
-| What | Kata (Kata substrate) | Lambda (Lambda MicroVM substrate) |
-| --- | --- | --- |
-| Pipeline steps | Argo UI (`/argo-workflows`) or `kubectl logs -n argo <pod>` | **same** |
-| Coder output | `kubectl logs -n agent-sandbox-system df-issue-<id>` (native) | **`GET https://<vm-endpoint>/logs`** with an auth token (runtime CloudWatch routing is unreliable on the pre-GA runtime, so the hook-server captures coder stdout to a file + serves it) |
-| Image build | n/a (normal ECR image) | CloudWatch `/aws/lambda/microvms/coder-image` |
+| What | Kata (Kata substrate) | Lambda (Lambda MicroVM substrate) | AgentCore Runtime |
+| --- | --- | --- | --- |
+| Pipeline steps | Argo UI (`/argo-workflows`) or `kubectl logs -n argo <pod>` | **same** | **same** |
+| Coder output | `kubectl logs -n agent-sandbox-system df-issue-<id>` (native) | **`GET https://<vm-endpoint>/logs`** with an auth token (runtime CloudWatch routing is unreliable on the pre-GA runtime, so the hook-server captures coder stdout to a file + serves it) | CloudWatch `/aws/bedrock-agentcore/runtimes/` |
+| Image build | n/a (normal ECR image) | CloudWatch `/aws/lambda/microvms/coder-image` | ECR `repo@sha256:...` from `task agentcore-image` |
 
 ---
 
-## DAG — two SEPARATE WorkflowTemplates (one per substrate)
+## DAG — three SEPARATE WorkflowTemplates (one per substrate)
 
 The substrates run **different Argo WorkflowTemplates**, so each graph is clean and Kata's certified
 pipeline is never touched by Lambda MicroVM substrate changes. The Argo Events sensor routes by label:
-`dark-factory` → `df-run` (Kata), `darkfactory-lambda` → `df-run-lambda` (Lambda MicroVM substrate).
+`dark-factory` → `df-run` (Kata), `darkfactory-lambda` → `df-run-lambda` (Lambda MicroVM substrate),
+`darkfactory-agentcore` → `df-run-agentcore` (AgentCore Runtime).
 
 **Kata — `df-run` (certified, byte-identical to the mature pipeline):**
 ```
@@ -93,6 +100,18 @@ provision-microvm → drive-coder → suspend-microvm → { holdout, devops-gate
 The one extra node — `suspend-microvm` — is **explicit and lives only in the Lambda graph**, so the
 Kata graph still contains zero MicroVM nodes. Suspend/resume is owned by the workflow directly (it
 calls `aws lambda-microvms suspend/resume-microvm`), not a bridge or a lifecycle controller.
+
+**AgentCore — `df-run-agentcore` (runtime-native; no SandboxClaim):**
+```
+invoke-agentcore → await-coder (GitHub PR) → stop-agentcore-session → { holdout, devops-gate, security, detect → deploy-test } → status → onExit(stop session again)
+```
+ACK creates the runtime once through KRO. The workflow invokes a disposable session per
+round with its workflow UID; the host starts `entrypoint.js` and answers `/ping`
+with `HealthyBusy` until the coder finishes. GitHub carries the branch between
+rounds. Default idle timeout is 15 minutes, with an eight-hour maximum lifetime.
+PUBLIC network mode is the default; VPC mode uses Terraform's private subnet IDs
+and egress-only security group, injected by `task agentcore` after enabling
+`enable_agentcore_vpc`. Both modes invoke Bedrock directly through the execution role.
 
 ### Substrate-specific mechanics
 - **Kata:** `claim-sandbox` binds a **pre-warmed** pod from `coder-warmpool`; the operator injects
@@ -173,6 +192,11 @@ WorkflowTemplates** (`df-run` vs `df-run-lambda`): Lambda MicroVM substrate's pl
 - **Lambda MicroVM (strategic):** serverless, suspend-to-zero per idle session, no node pool —
   the model that scales economically to thousands of sessions. Choose it as it reaches GA. Cost
   today: pre-GA control-plane maturity + the plumbing above.
+- **AgentCore Runtime (pilot):** choose disposable coder rounds with direct Bedrock
+  and V2 snapshot-based session starts instead of suspended workspaces. The
+  runtime remains provisioned; sessions stop after each round. Validate the
+  region, VPC AZ support if used, and the Factory-reported 2 vCPU / 8 GB RAM /
+  ~8 GB disk limits for your workload. No end-to-end result is recorded here yet.
 
 Both share the **same coder, same pipeline, same review gates, same UX** — so migrating between
 substrates is a label change, invisible to the developer/issue author.
