@@ -188,8 +188,7 @@ resource "aws_iam_role_policy" "ack_capability" {
           # Roles the KRO MicrovmSandbox graph creates: <name>-microvm-build / -exec.
           "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/*-microvm-build",
           "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/*-microvm-exec",
-          # AgentCore controller, graph execution role, and workflow invoker role.
-          "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/${local.cluster_name}-ack-bedrockagentcorecontrol-controller",
+          # AgentCore graph execution role and workflow invoker role.
           "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/*-agentcore-exec",
           "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/${local.cluster_name}-dark-factory-agentcore-invoker",
         ]
@@ -201,16 +200,37 @@ resource "aws_iam_role_policy" "ack_capability" {
         # Lambda MicroVM assumes build + exec. The controller role is ALSO passed —
         # not by Lambda, but by the eks controller when it creates the three
         # PodIdentityAssociations below, which hand that role to a ServiceAccount.
-        # AgentCore passes its execution role to Runtime and its controller and
-        # invoker roles to Pod Identity associations in the same cluster.
+        # AgentCore: the bedrockagentcorecontrol controller (bundled in Managed ACK)
+        # passes the execution role on CreateAgentRuntime; the eks controller passes
+        # the invoker role to its PodIdentityAssociation.
         Resource = [
           "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/*-microvm-build",
           "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/*-microvm-exec",
           "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/${local.cluster_name}-ack-lambdamicrovms-controller",
-          "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/${local.cluster_name}-ack-bedrockagentcorecontrol-controller",
           "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/*-agentcore-exec",
           "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/${local.cluster_name}-dark-factory-agentcore-invoker",
         ]
+      },
+      {
+        Sid    = "AgentCoreRuntimes"
+        Effect = "Allow"
+        # Managed ACK bundles the bedrockagentcorecontrol controller (verified live:
+        # capability 46.184.0 installs its CRDs and reconciles AgentRuntime with this
+        # role), so the AgentCore substrate runs NO controller of its own. Without
+        # these actions the AgentRuntime sits ACK.Recoverable with
+        # "not authorized to perform: bedrock-agentcore:CreateAgentRuntime".
+        Action = [
+          "bedrock-agentcore:CreateAgentRuntime",
+          "bedrock-agentcore:UpdateAgentRuntime",
+          "bedrock-agentcore:DeleteAgentRuntime",
+          "bedrock-agentcore:GetAgentRuntime",
+          "bedrock-agentcore:ListAgentRuntimes",
+          "bedrock-agentcore:ListAgentRuntimeVersions",
+          "bedrock-agentcore:ListAgentRuntimeEndpoints",
+          "bedrock-agentcore:TagResource", "bedrock-agentcore:UntagResource",
+          "bedrock-agentcore:ListTagsForResource",
+        ]
+        Resource = "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${var.region}:${local.account_id}:runtime/*"
       },
       {
         Sid    = "PodIdentityAssociations"

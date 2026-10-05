@@ -9,23 +9,25 @@ after the coder finishes; review and fix rounds use new sessions, not suspend.
 
 | Piece | Purpose |
 |---|---|
-| `bootstrap/00-ack-controller.yaml` | Self-managed ACK AgentCore controller (`bedrockagentcorecontrol-chart` 1.15.1) |
 | `bootstrap/10-substrate.yaml` | ArgoCD app for this opt-in Helm chart |
-| `templates/iam/` | ACK roles and Pod Identity for the controller and separate Argo invoker SA; KRO child-resource RBAC |
+| `templates/iam/` | ACK role and Pod Identity for the separate Argo invoker SA; KRO child-resource RBAC |
 | `templates/kro-rgd/` | One `AgentCoreSandbox` CRD and platform instance, composed of an ACK execution role and AgentRuntime |
 | `image/` | arm64 coder image wrapper: `/ping` health and `/invocations` launch |
 
 Managed KRO watches the `kro.run` API group; a different `agentcore.apiGroup`
-can leave the graph Inactive. Managed ACK `iam` and `eks` reconcile roles and
-Pod Identity, while the AgentCore ACK controller is installed by the bootstrap
-app. The controller role needs permission from the Managed ACK controllers to
-create its IAM role; see `infrastructure/terraform/capabilities.tf` in the plan.
+can leave the graph Inactive. Managed ACK reconciles everything here: its `iam`
+and `eks` controllers create the roles and Pod Identity, and its bundled
+`bedrockagentcorecontrol` controller creates the `AgentRuntime`. This substrate
+installs NO controller of its own. The ACK capability role must be allowed the
+`bedrock-agentcore:*AgentRuntime*` actions; `infrastructure/terraform/capabilities.tf`
+grants them (verified live: without the grant the AgentRuntime sits
+`ACK.Recoverable` with `not authorized to perform: bedrock-agentcore:CreateAgentRuntime`).
 
 ## Prerequisites and image
 
-Confirm that your account/region has AgentCore Runtime enabled and that
-`public.ecr.aws/aws-controllers-k8s` serves chart
-`bedrockagentcorecontrol-chart` version `1.15.1`. Build the shared coder image
+Confirm that your account/region has AgentCore Runtime enabled and that the
+Managed ACK capability on the cluster ships the `bedrockagentcorecontrol` CRDs
+(`kubectl get crd agentruntimes.bedrockagentcorecontrol.services.k8s.aws`). Build the shared coder image
 for **linux/arm64** before building this wrapper. AgentCore V2 is available in
 `us-east-1`, `us-east-2`, `us-west-2`, `eu-west-1`, and `ap-northeast-1`.
 

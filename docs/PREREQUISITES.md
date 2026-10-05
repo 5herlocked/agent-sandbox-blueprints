@@ -25,8 +25,9 @@ and region. V2 (used by `task agentcore` after ACK creates the runtime) is
 available in `us-east-1`, `us-east-2`, `us-west-2`, `eu-west-1`, and
 `ap-northeast-1`. Build and push the shared coder for `linux/arm64` to the
 `coder_microvm` ECR repo, then run `task agentcore-image` for a digest-pinned
-host image. The self-managed ACK `bedrockagentcorecontrol-chart` v1.15.1 must
-be pullable from `public.ecr.aws/aws-controllers-k8s` by ArgoCD. VPC mode also
+host image. The Managed ACK capability must include the `bedrockagentcorecontrol`
+controller (it does as of capability version 46.184.0; check with
+`kubectl get crd agentruntimes.bedrockagentcorecontrol.services.k8s.aws`). VPC mode also
 requires `enable_agentcore_vpc=true` in Terraform and **private subnets in
 AgentCore-supported AZs**; PUBLIC is the default.
 

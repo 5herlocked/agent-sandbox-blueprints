@@ -9,8 +9,6 @@ agentcore:
   apiGroup: kro.run
   podIdentity:
     clusterName: SET-BY-TASK-AGENTCORE
-    controllerNamespace: ack-system
-    controllerServiceAccount: ack-bedrockagentcorecontrol-controller
   kroCapability:
     enabled: true
     roleName: ""     # defaults to <clusterName>-KROCapabilityRole

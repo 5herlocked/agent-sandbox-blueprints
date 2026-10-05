@@ -44,7 +44,7 @@ replaces those two with `invoke-agentcore` and `stop-agentcore-session`.
 | Topic | Decision | Reason |
 |---|---|---|
 | Inference | `USE_BEDROCK=1`, direct Bedrock through the runtime execution role. Network mode `PUBLIC`. | Matches Lambda MicroVM, the existing out-of-cluster substrate (`lambda-microvm/templates/kro-rgd/10-rgd-and-image.yaml:111-133`). A VM outside the cluster cannot reach Bifrost's ClusterIP. `entrypoint.js` already supports this path. |
-| Resource creation | ACK `bedrockagentcorecontrol` controller (self-managed, like `lambdamicrovms`) + a KRO `ResourceGraphDefinition`, deployed by ArgoCD. | Same mechanism as `lambda-microvm/`. No Terraform, CDK, or CLI for runtime resources. |
+| Resource creation | Managed ACK's bundled `bedrockagentcorecontrol` controller + a KRO `ResourceGraphDefinition`, deployed by ArgoCD. No self-managed controller (live finding: Managed ACK already ships it). | Same mechanism as `lambda-microvm/` minus the self-managed controller. No Terraform, CDK, or CLI for runtime resources. |
 | Session model | Disposable per round. `runtimeSessionId` = Argo `workflow.uid`. `StopRuntimeSession` after `await-coder` succeeds. Fix rounds start a new session; the coder re-clones `df/issue-N` (`entrypoint.js:165-184`). | GitHub holds the branch, the issue, and the feedback. AgentCore microVM cold start is seconds, so there is nothing to gain from suspend/resume. No `sessionStorage`. |
 | Gate templates | Copied into `df-run-agentcore`, same as the two existing templates. | Zero edits to Kata and Lambda WorkflowTemplates. Deduplication to `templateRef` stays a separate roadmap item. |
 | HTTP host | New `agentcore/image/host.js`. Not shared with `lambda-microvm/image/hook-server.js`. | Lambda image stays byte-identical. |
@@ -89,9 +89,9 @@ Mirrors `lambda-microvm/`.
 |---|---|---|
 | `agentcore/README.md` | `lambda-microvm/README.md` | What it is, prerequisites, image build, how to verify |
 | `agentcore/Chart.yaml`, `values.yaml`, `templates/_helpers.tpl` | same in `lambda-microvm/` | Chart scaffolding, `agentcore.enabled` gate |
-| `agentcore/bootstrap/00-ack-controller.yaml` | `lambda-microvm/bootstrap/00-ack-controller.yaml` | ArgoCD Application, wave 0: `public.ecr.aws/aws-controllers-k8s` chart `bedrockagentcorecontrol-chart` `1.15.1`, namespace `ack-system`, `installScope: cluster`, SA `ack-bedrockagentcorecontrol-controller` |
+| ~~`agentcore/bootstrap/00-ack-controller.yaml`~~ | — | **Dropped after live verification.** Managed ACK (capability 46.184.0) already bundles the `bedrockagentcorecontrol` controller; a self-managed copy fought it over the same `AgentRuntime`. The capability role gets the `bedrock-agentcore:*AgentRuntime*` grants in `capabilities.tf` instead. |
 | `agentcore/bootstrap/10-substrate.yaml` | `lambda-microvm/bootstrap/10-substrate.yaml` | ArgoCD Application, wave 1: this chart with `accountId`, `clusterName`, `image.uri` |
-| `agentcore/templates/iam/00-controller-pod-identity.yaml` | `lambda-microvm/templates/iam/00-controller-pod-identity.yaml` | ACK `iam` Role `<cluster>-ack-bedrockagentcorecontrol-controller` (trust: `pods.eks.amazonaws.com`; policy: `bedrock-agentcore:*AgentRuntime*`, `iam:PassRole` on the exec role) + ACK `eks` PodIdentityAssociation to the controller SA |
+| ~~`agentcore/templates/iam/00-controller-pod-identity.yaml`~~ | — | **Dropped** with the controller above. |
 | `agentcore/templates/iam/10-invoker-pod-identity.yaml` | `examples/_shared/templates/10-rbac.yaml:118-138` | ACK `iam` Role `<cluster>-dark-factory-agentcore-invoker` (policy: `bedrock-agentcore:InvokeAgentRuntime`, `bedrock-agentcore:StopRuntimeSession` on the runtime ARN) + PodIdentityAssociation to SA `dark-factory-agentcore` in the Argo namespace |
 | `agentcore/templates/iam/40-kro-graph-rbac.yaml` | `lambda-microvm/templates/iam/40-kro-graph-rbac.yaml` | KRO RBAC for `agentruntimes.bedrockagentcorecontrol.services.k8s.aws` and `roles.iam.services.k8s.aws` |
 | `agentcore/templates/kro-rgd/10-rgd.yaml` | `lambda-microvm/templates/kro-rgd/10-rgd-and-image.yaml` | RGD `AgentCoreSandbox` (`kro.run`, wave -1) + one instance (wave 0). See §5.2 |
@@ -258,7 +258,7 @@ be refreshed after the Sensor and `iterate.js` change, for all three examples.
 
 | Identity | Trust | Permissions | Created by |
 |---|---|---|---|
-| `<cluster>-ack-bedrockagentcorecontrol-controller` | `pods.eks.amazonaws.com` | `bedrock-agentcore:Create/Update/Delete/Get/ListAgentRuntime*`, `iam:PassRole` on `*-agentcore-exec` | `agentcore/templates/iam/00-*` |
+| Managed ACK capability role (`<cluster>-ACKCapabilityRole`) | existing | `bedrock-agentcore:Create/Update/Delete/Get/ListAgentRuntime*` on `runtime/*`, `iam:PassRole` on `*-agentcore-exec` | `capabilities.tf` (`AgentCoreRuntimes` Sid) |
 | `<cluster>-agentcore-exec` | `bedrock-agentcore.amazonaws.com` | Bedrock invoke, ECR pull, CloudWatch logs | KRO graph |
 | `<cluster>-dark-factory-agentcore-invoker` | `pods.eks.amazonaws.com` | `bedrock-agentcore:InvokeAgentRuntime`, `StopRuntimeSession` on the one runtime ARN | `agentcore/templates/iam/10-*` |
 | Managed ACK `iam`/`eks` controllers | existing | extended name patterns | `capabilities.tf` |
