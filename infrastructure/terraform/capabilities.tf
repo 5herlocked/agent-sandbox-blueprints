@@ -226,11 +226,35 @@ resource "aws_iam_role_policy" "ack_capability" {
           "bedrock-agentcore:GetAgentRuntime",
           "bedrock-agentcore:ListAgentRuntimes",
           "bedrock-agentcore:ListAgentRuntimeVersions",
+          # The controller also manages the runtime's DEFAULT endpoint (live: the
+          # next AccessDenied after CreateAgentRuntime was CreateAgentRuntimeEndpoint).
+          "bedrock-agentcore:CreateAgentRuntimeEndpoint",
+          "bedrock-agentcore:GetAgentRuntimeEndpoint",
+          "bedrock-agentcore:UpdateAgentRuntimeEndpoint",
+          "bedrock-agentcore:DeleteAgentRuntimeEndpoint",
           "bedrock-agentcore:ListAgentRuntimeEndpoints",
           "bedrock-agentcore:TagResource", "bedrock-agentcore:UntagResource",
           "bedrock-agentcore:ListTagsForResource",
         ]
         Resource = "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${var.region}:${local.account_id}:runtime/*"
+      },
+      {
+        Sid    = "AgentCoreWorkloadIdentity"
+        Effect = "Allow"
+        # CreateAgentRuntime also creates and tags the runtime's workload identity
+        # (live: "not authorized to perform: bedrock-agentcore:TagResource on
+        # workload-identity-directory/default/workload-identity/*"). The identity
+        # lives in the account's default directory, not under the runtime ARN.
+        Action = [
+          "bedrock-agentcore:CreateWorkloadIdentity",
+          "bedrock-agentcore:GetWorkloadIdentity",
+          "bedrock-agentcore:UpdateWorkloadIdentity",
+          "bedrock-agentcore:DeleteWorkloadIdentity",
+          "bedrock-agentcore:ListWorkloadIdentities",
+          "bedrock-agentcore:TagResource", "bedrock-agentcore:UntagResource",
+          "bedrock-agentcore:ListTagsForResource",
+        ]
+        Resource = "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${var.region}:${local.account_id}:workload-identity-directory/*"
       },
       {
         Sid    = "PodIdentityAssociations"
