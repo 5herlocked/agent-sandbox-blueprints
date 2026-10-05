@@ -1,0 +1,35 @@
+# AgentCore Runtime substrate. Disabled until the cluster opts in.
+namespace: agent-sandbox-system
+
+agentcore:
+  enabled: false
+  accountId: ""
+  region: us-west-2
+  # Managed KRO only watches kro.run; another group leaves the graph Inactive.
+  apiGroup: kro.run
+  podIdentity:
+    clusterName: SET-BY-TASK-AGENTCORE
+    controllerNamespace: ack-system
+    controllerServiceAccount: ack-bedrockagentcorecontrol-controller
+  kroCapability:
+    enabled: true
+    roleName: ""     # defaults to <clusterName>-KROCapabilityRole
+    sessionName: KRO
+  sandbox:
+    name: coder
+  image:
+    # Publish an arm64 image first and pin the digest; a placeholder must not deploy.
+    uri: SET-BY-TASK-AGENTCORE-IMAGE
+  network:
+    mode: PUBLIC
+    subnets: []
+    securityGroups: []
+  lifecycle:
+    idleRuntimeSessionTimeout: 900
+    maxLifetime: 28800
+  # ACK 1.15.1 has no platformVersion field. The Taskfile sets V2 using the AWS
+  # update-agent-runtime API after ACK has created a READY runtime; NOT in the RGD.
+  platformVersion: V2
+  invoker:
+    serviceAccount: dark-factory-agentcore
+    argoNamespace: argo
