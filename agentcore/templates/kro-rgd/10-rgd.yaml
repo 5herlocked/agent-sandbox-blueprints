@@ -5,6 +5,8 @@
 {{- if not (regexMatch "@sha256:[0-9a-f]{64}$" $a.image.uri) }}{{ fail "agentcore.image.uri must end in @sha256:<64 lowercase hex digits>" }}{{- end }}
 {{- if not (has $a.network.mode (list "PUBLIC" "VPC")) }}{{ fail "agentcore.network.mode must be PUBLIC or VPC" }}{{- end }}
 {{- if and (eq $a.network.mode "VPC") (or (lt (len $a.network.subnets) 1) (lt (len $a.network.securityGroups) 1)) }}{{ fail "VPC mode requires agentcore.network.subnets and securityGroups" }}{{- end }}
+{{- if not (regexMatch "^[a-z]([a-z0-9-]*[a-z0-9])?$" $a.podIdentity.clusterName) }}{{ fail "agentcore.podIdentity.clusterName must be a DNS-1123 label (lowercase letters, digits, hyphens; start with a letter)" }}{{- end }}
+{{- if gt (len $a.podIdentity.clusterName) 25 }}{{ fail "agentcore.podIdentity.clusterName must be at most 25 characters: generated ACK controller IAM role names must fit 64 characters" }}{{- end }}
 {{/*
   AgentCoreSandbox is platform-owned: one runtime + execution role per cluster.
   ACK's AgentRuntime spec lacks platformVersion, so the Taskfile sets V2 via
@@ -27,9 +29,12 @@ spec:
     kind: AgentCoreSandbox
     group: {{ $a.apiGroup | quote }}
     spec:
-      # AgentRuntime names only permit letters/digits/underscore, max 48 chars.
-      # The chart normalizes/truncates the cluster name before setting this.
+      # Raw DNS-safe cluster name. Used for Kubernetes metadata.name and the
+      # execution IAM role name; hyphens are valid in both, not in AgentCore.
       name: string | required=true
+      # AgentCore agentRuntimeName only: underscores replace hyphens and the
+      # _dark_factory suffix fits its 48-character limit. Never use for K8s names.
+      runtimeName: string | required=true
       # Needed for the execution role's aws:SourceAccount trust condition.
       accountId: string | required=true
       image:
@@ -78,7 +83,7 @@ spec:
         metadata:
           name: ${schema.spec.name}-agentcore-runtime
         spec:
-          agentRuntimeName: ${schema.spec.name}_dark_factory
+          agentRuntimeName: ${schema.spec.runtimeName}
           description: Dark Factory coder runtime
           agentRuntimeArtifact:
             containerConfiguration:
@@ -109,7 +114,8 @@ metadata:
     argocd.argoproj.io/sync-wave: "0"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
-  name: {{ include "agentcore.runtimeStem" . }}
+  name: {{ $a.podIdentity.clusterName }}
+  runtimeName: {{ include "agentcore.runtimeStem" . }}_dark_factory
   accountId: {{ $a.accountId | quote }}
   image:
     uri: {{ $a.image.uri | quote }}
