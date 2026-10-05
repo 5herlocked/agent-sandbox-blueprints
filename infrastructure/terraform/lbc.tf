@@ -56,21 +56,10 @@ resource "aws_eks_pod_identity_association" "aws_lbc" {
 }
 
 # The controller discovers where to put load balancers from SUBNET TAGS. Without
-# these it logs "couldn't auto-discover subnets" and provisions nothing — another
-# failure that never mentions tags. The VPC module already tags for Karpenter
-# discovery; these are the ELB-specific ones.
-resource "aws_ec2_tag" "lbc_public_subnet_elb" {
-  for_each = var.enable_aws_lbc ? toset(module.vpc.public_subnets) : toset([])
-
-  resource_id = each.value
-  key         = "kubernetes.io/role/elb"
-  value       = "1"
-}
-
-resource "aws_ec2_tag" "lbc_private_subnet_elb" {
-  for_each = var.enable_aws_lbc ? toset(module.vpc.private_subnets) : toset([])
-
-  resource_id = each.value
-  key         = "kubernetes.io/role/internal-elb"
-  value       = "1"
-}
+# them it logs "couldn't auto-discover subnets" and provisions nothing — another
+# failure that never mentions tags. vpc.tf applies them through the VPC module
+# (public_subnet_tags / private_subnet_tags: kubernetes.io/role/elb and
+# kubernetes.io/role/internal-elb). Do NOT add aws_ec2_tag resources keyed on
+# module.vpc.*_subnets here: the IDs are unknown at plan time on a fresh account,
+# and `for_each` over them fails with "Invalid for_each argument" before anything
+# is created.
