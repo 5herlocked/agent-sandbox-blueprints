@@ -48,9 +48,9 @@ spec:
         idleRuntimeSessionTimeout: integer | default=900
         maxLifetime: integer | default=28800
     status:
-      runtimeARN: ${runtime.status.ackResourceMetadata.arn}
-      runtimeID: ${runtime.status.agentRuntimeID}
-      runtimeStatus: ${runtime.status.status}
+      runtimeARN: ${agentRuntime.status.ackResourceMetadata.arn}
+      runtimeID: ${agentRuntime.status.agentRuntimeID}
+      runtimeStatus: ${agentRuntime.status.status}
       executionRoleARN: ${execRole.status.ackResourceMetadata.arn}
   resources:
     # The runtime assumes this role to pull ECR, call Bedrock and write logs.
@@ -76,7 +76,9 @@ spec:
     # KRO supports standalone CEL objects: the ternary returns the entire network
     # configuration. PUBLIC has NO networkModeConfig key; VPC includes the IDs.
     # We do not use omit(), which is feature-gated on some KRO installations.
-    - id: runtime
+    # KRO reserves the id "runtime" (live: "naming convention violation: id runtime
+    # is a reserved keyword in KRO"), so the AgentRuntime resource is agentRuntime.
+    - id: agentRuntime
       template:
         apiVersion: bedrockagentcorecontrol.services.k8s.aws/v1alpha1
         kind: AgentRuntime
