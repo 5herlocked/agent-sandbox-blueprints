@@ -29,7 +29,13 @@ host image. The Managed ACK capability must include the `bedrockagentcorecontrol
 controller (it does as of capability version 46.184.0; check with
 `kubectl get crd agentruntimes.bedrockagentcorecontrol.services.k8s.aws`). VPC mode also
 requires `enable_agentcore_vpc=true` in Terraform and **private subnets in
-AgentCore-supported AZs**; PUBLIC is the default.
+AgentCore-supported AZs**; PUBLIC is the default. In the live `us-west-2` run,
+the three private subnet AZ IDs were `usw2-az1`, `usw2-az2`, and `usw2-az3`.
+AgentCore uses `AWSServiceRoleForBedrockAgentCoreNetwork` to manage VPC ENIs;
+the runtime execution role does not need EC2 ENI actions. Private subnets
+need NAT egress to reach GitHub, Bedrock, and ECR in this blueprint. After a
+switch back to PUBLIC, AWS-managed ENIs can hold the security group for up to
+eight hours; defer the targeted Terraform SG removal until they disappear.
 
 ### EKS Managed capabilities
 

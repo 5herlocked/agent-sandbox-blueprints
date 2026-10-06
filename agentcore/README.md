@@ -52,6 +52,11 @@ IDs in AgentCore-supported Availability Zones and the egress-only security
 group from Terraform; confirm the AZs are supported in the target region before
 deployment. The KRO graph includes `networkModeConfig` only in VPC mode.
 Bedrock inference is direct through the runtime execution role in both modes.
+In `us-west-2`, the supported AZ IDs are `usw2-az1`, `usw2-az2`, and
+`usw2-az3` (all three were used in the live VPC run). AgentCore creates ENIs
+through `AWSServiceRoleForBedrockAgentCoreNetwork`; the execution role needs no
+EC2 network-interface permissions. Private subnets need a NAT route for GitHub,
+Bedrock, and ECR access in this blueprint.
 
 ## Verify
 
@@ -67,6 +72,21 @@ Wait for `status.runtimeStatus=READY` and a non-empty `runtimeARN` before
 invoking. `AgentCoreSandbox.status` is an ACK projection; the AWS API is the
 source of truth for current runtime state. Creation and V2 snapshot preparation
 can take minutes.
+
+On a PUBLIC ↔ VPC switch, `task agentcore` waits for the AWS runtime to report
+`READY`, V2, and the requested network configuration. A live PUBLIC → VPC
+update created version 3, retained V2, and took about 9 minutes 25 seconds to
+reach READY. The VPC run for issue #9 opened PR #10 in 2 minutes and finished
+its workflow in 3 minutes 17 seconds; both implementation and holdout passed.
+This is a different issue from the prior PUBLIC run (~2 minutes 47 seconds to
+PR), so the times are not a controlled latency comparison.
+
+Switching back to PUBLIC creates another version. Check AWS for PUBLIC/READY/V2
+before removing the Terraform security group. An earlier VPC version can still
+hold its AgentCore-managed ENIs; even after that unused version is removed,
+AWS says the ENIs may remain for **up to eight hours**. Do not manually detach
+service-managed ENIs. Once they disappear, run the targeted Terraform apply to
+remove the security group, then check the full plan.
 
 ## Session lifecycle and operational notes
 
