@@ -1,12 +1,11 @@
 {{- if .Values.agentcore.enabled }}
 {{- $a := .Values.agentcore }}
 {{- if not (regexMatch "^[0-9]{12}$" ($a.accountId | toString)) }}{{ fail "agentcore.accountId must be a 12-digit account ID" }}{{- end }}
-{{- if or (not $a.image.uri) (eq $a.image.uri "SET-BY-TASK-AGENTCORE-IMAGE") }}{{ fail "agentcore.image.uri must be an arm64 ECR image pinned by digest (publish image first)" }}{{- end }}
 {{- if not (regexMatch "@sha256:[0-9a-f]{64}$" $a.image.uri) }}{{ fail "agentcore.image.uri must end in @sha256:<64 lowercase hex digits>" }}{{- end }}
 {{- if not (has $a.network.mode (list "PUBLIC" "VPC")) }}{{ fail "agentcore.network.mode must be PUBLIC or VPC" }}{{- end }}
 {{- if and (eq $a.network.mode "VPC") (or (lt (len $a.network.subnets) 1) (lt (len $a.network.securityGroups) 1)) }}{{ fail "VPC mode requires agentcore.network.subnets and securityGroups" }}{{- end }}
 {{- if not (regexMatch "^[a-z]([a-z0-9-]*[a-z0-9])?$" $a.podIdentity.clusterName) }}{{ fail "agentcore.podIdentity.clusterName must be a DNS-1123 label (lowercase letters, digits, hyphens; start with a letter)" }}{{- end }}
-{{- if gt (len $a.podIdentity.clusterName) 25 }}{{ fail "agentcore.podIdentity.clusterName must be at most 25 characters: generated ACK controller IAM role names must fit 64 characters" }}{{- end }}
+{{- if gt (len $a.podIdentity.clusterName) 33 }}{{ fail "agentcore.podIdentity.clusterName must be at most 33 characters: the -dark-factory-agentcore-invoker IAM role suffix must fit 64 characters" }}{{- end }}
 {{/*
   AgentCoreSandbox is platform-owned: one runtime + execution role per cluster.
   ACK's AgentRuntime spec lacks platformVersion, so the Taskfile sets V2 via
@@ -27,7 +26,7 @@ spec:
   schema:
     apiVersion: v1alpha1
     kind: AgentCoreSandbox
-    group: {{ $a.apiGroup | quote }}
+    group: kro.run
     spec:
       # Raw DNS-safe cluster name. Used for Kubernetes metadata.name and the
       # execution IAM role name; hyphens are valid in both, not in AgentCore.
@@ -51,7 +50,6 @@ spec:
       runtimeARN: ${agentRuntime.status.ackResourceMetadata.arn}
       runtimeID: ${agentRuntime.status.agentRuntimeID}
       runtimeStatus: ${agentRuntime.status.status}
-      executionRoleARN: ${execRole.status.ackResourceMetadata.arn}
   resources:
     # The runtime assumes this role to pull ECR, call Bedrock and write logs.
     - id: execRole
@@ -76,8 +74,7 @@ spec:
     # KRO supports standalone CEL objects: the ternary returns the entire network
     # configuration. PUBLIC has NO networkModeConfig key; VPC includes the IDs.
     # We do not use omit(), which is feature-gated on some KRO installations.
-    # KRO reserves the id "runtime" (live: "naming convention violation: id runtime
-    # is a reserved keyword in KRO"), so the AgentRuntime resource is agentRuntime.
+     # KRO reserves the id `runtime`.
     - id: agentRuntime
       template:
         apiVersion: bedrockagentcorecontrol.services.k8s.aws/v1alpha1
@@ -101,7 +98,7 @@ spec:
 ---
 # ONE platform instance. Run sessions are disposable and created through Invoke,
 # not through AgentRuntimeEndpoint or separate Kubernetes objects.
-apiVersion: {{ $a.apiGroup }}/v1alpha1
+apiVersion: kro.run/v1alpha1
 kind: AgentCoreSandbox
 metadata:
   name: {{ $a.sandbox.name }}
@@ -113,7 +110,7 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   name: {{ $a.podIdentity.clusterName }}
-  runtimeName: {{ include "agentcore.runtimeStem" . }}_dark_factory
+  runtimeName: {{ regexReplaceAll "-" $a.podIdentity.clusterName "_" }}_dark_factory
   accountId: {{ $a.accountId | quote }}
   image:
     uri: {{ $a.image.uri | quote }}

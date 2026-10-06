@@ -2,7 +2,7 @@
 df-run-agentcore — the Dark Factory pipeline on AgentCore Runtime.
 
   trigger → invoke a disposable session → coder implements+tests →
-  coder opens PR → stop session → verification gates → await human approval.
+  coder opens PR → stop session and verification gates in parallel → human approval.
 
 The platform owns the AgentCoreSandbox and its runtime. This workflow waits for
 READY, then starts one coder session with workflow.uid as its session id. GitHub
@@ -87,15 +87,11 @@ spec:
           # 1. Start the coder in a fresh session on the READY platform runtime.
           - name: invoke-agentcore
             template: invoke-agentcore
-          # 2. Poll GitHub for the PR the coder opens (substrate-agnostic; reused verbatim).
-          - name: drive-coder
-            template: await-coder
-            dependencies: [invoke-agentcore]
-            arguments:
-              parameters:
-                - name: sandbox
-                  value: ""
-          # 3. Stop the disposable session once the coder pushed its PR.
+           # 2. Poll GitHub for the PR the coder opens.
+           - name: drive-coder
+             template: await-coder
+             dependencies: [invoke-agentcore]
+           # 3. Stop the session after the PR; gates start at the same time.
           - name: stop-session
             template: stop-agentcore-session
             dependencies: [drive-coder]
@@ -191,11 +187,7 @@ spec:
     - name: invoke-agentcore
       serviceAccountName: {{ .Values.agentcore.invokerServiceAccount }}
       activeDeadlineSeconds: 720
-      outputs:
-        parameters:
-          - name: session-id
-            valueFrom: { path: /tmp/session-id }
-      script:
+       script:
         image: {{ .Values.agentcore.stepImage }}
         command: [sh]
         env:
@@ -256,7 +248,6 @@ spec:
             }
           python3 -c 'import json; r=json.load(open("/tmp/invoke.out")); assert r.get("accepted") is True, "runtime did not accept the coder"'
           echo "[invoke] response: $(head -c 120 /tmp/invoke.out)"
-          printf '%s\n' "${SESSION}" > /tmp/session-id
 
     # ---- 2. Wait for the coder VM to finish — GitHub is the completion bus ----
     # The coder image (baked into the SandboxTemplate) auto-runs on VM start,
@@ -266,11 +257,8 @@ spec:
     # annotation — it self-reports through GitHub. This step polls the GitHub API
     # (with the workflow's own token) for a PR whose head is df/issue-N, and
     # treats the head commit's dark-factory/implementation check as the verdict.
-    - name: await-coder
-      inputs:
-        parameters:
-          - name: sandbox
-      activeDeadlineSeconds: {{ mul .Values.coder.runTimeoutMinutes 60 }}
+     - name: await-coder
+       activeDeadlineSeconds: {{ mul .Values.coder.runTimeoutMinutes 60 }}
       script:
         image: {{ .Values.stepImage }}
         command: [sh]
