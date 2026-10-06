@@ -139,11 +139,12 @@ every value at **both** scopes.
 The trees were extracted wholesale from OAP and still contain keys this blueprint never
 reads. They are harmless but make the surface look larger than it is.
 
-### 8. Comment → `df-iterate` auto-trigger is unverified
+### 8. Comment → `df-iterate` auto-trigger fails in the Sensor
 
-Labelling an issue triggers a run end to end (proven on both substrates). Commenting on
-a PR to request a fix does **not** — the sensor receives the webhook (GitHub reports
-`200 OK`) and then discards it:
+Labelling an issue triggers a run end to end, including AgentCore issue #13 → PR #14.
+Commenting on that PR at 2026-10-06 21:56:19 UTC did **not** trigger `df-iterate`:
+the Sensor received the `issue_comment` event (ID
+`4d30d56c17c1496693d13daa0090418a`) and discarded it:
 
 ```
 expr filter error (Cannot transition token types from
@@ -169,5 +170,9 @@ kubectl logs -n argo-events -l sensor-name=dark-factory --tail=200 \
   | grep -o 'Event \[ID .[a-f0-9]*.' | sort | uniq -c
 ```
 
-**Workaround (proven):** submit `df-iterate` directly with the finding as
-`comment-body`. That is how PR #149 went from DevOps-Agent-blocked to approved.
+**Workaround (proven):** submit `df-iterate` directly with the same posted
+comment as `comment-body`. Workflow `df-iterate-6026182660` submitted
+`df-run-agentcore-13-i1`, which Succeeded on a new head for
+[PR #14](https://github.com/5herlocked/dark-factory-sandbox/pull/14), with
+implementation and holdout statuses green. This proves the base64 fix-round
+path, **not** the automatic webhook trigger or the plain `iterateNote` fallback.

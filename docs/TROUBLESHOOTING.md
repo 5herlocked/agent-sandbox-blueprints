@@ -60,7 +60,8 @@ Symptom → cause → fix, for the failures that actually happen. Ordered by lay
 | Symptom | Cause | Fix |
 |---|---|---|
 | Webhook arrives, no Workflow created | Sensor has stale JetStream consumers after an EventBus restart | Delete the stale consumers and restart the sensor |
-| Your "fix findings" comment does nothing | The pipeline posts as the token owner and ignores its own voice | Comment from a **different** GitHub account |
+| PR comment is ignored after `df-iterate` starts | With `iterate.identityGuard=true`, a PAT shared with the repo owner makes human comments look like the factory's own comments | Use a separate factory identity or disable the guard when the token identity is shared; check the Sensor filter first if no `df-iterate` starts |
+| PR comment arrives but no `df-iterate` workflow appears | Argo Events Sensor rejects the `matches` expression with `Cannot transition token types from VARIABLE [body_comment_body] to VARIABLE [matches]` | See [ROADMAP gap #8](ROADMAP.md); submit `df-iterate` directly with the posted comment while the Sensor filter remains broken |
 | Merge refused despite green checks | Stale findings from an earlier commit being counted | Judge by commit statuses on the **current head**; inline comments carry forward |
 | Agent re-ran but committed nothing | The review note never reached the sandbox | The note must ride in the sandbox's injected env / run payload |
 | Reviews restart on every push | Each new commit re-triggers the external agents (8–15 min each) | Expected; batch fixes into one commit where you can |
