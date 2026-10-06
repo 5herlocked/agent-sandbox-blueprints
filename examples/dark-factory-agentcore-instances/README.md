@@ -19,4 +19,4 @@ KRO/ACK path as [AgentCore Runtime](../dark-factory-agentcore/README.md).
 `AgentRuntime.spec.platformVersion`. Once available, add a `CapacityProvider`
 and one extra field to the AgentCore KRO graph. Move V2 into the graph and
 remove the imperative `task agentcore-v2` step. The WorkflowTemplate and HTTP
-host do not need to change. See [the plan](../../docs/AGENTCORE-PLAN.md#9-acri-placeholder).
+host do not need to change.
