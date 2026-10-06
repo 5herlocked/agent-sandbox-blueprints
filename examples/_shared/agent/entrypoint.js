@@ -475,7 +475,7 @@ async function main() {
       "single **consolidated verdict review** on this PR when they finish — that",
       "review (not this body) is the source of truth for merge readiness.",
       "",
-      "_Autonomously implemented in a hardware-isolated micro-VM. DevOps + Security reviews are the real AWS Frontier Agents._",
+      `_Autonomously implemented in a hardware-isolated ${SUBSTRATE}. DevOps + Security reviews are the real AWS Frontier Agents._`,
     ].join("\n");
     let prNumber = "";
     try {
@@ -507,9 +507,8 @@ async function main() {
       `### ${test.green ? "✅" : "❌"} 🧪 Local testing (in-VM, before PR)\n\n**${test.green ? "Build + unit tests passed" : "Tests NOT green"}** — discovered from the repo's own marker files (no central config).\n\n${test.summary ? "```\n" + String(test.summary).slice(0, 800) + "\n```" : ""}`);
 
     // Post the AWS DevOps Agent verdict as its own commit status, and — when the
-    // verdict clears — apply the handoff label so the hub's Security Agent step
-    // runs next (DevOps-first ordering). When not connected/BLOCK, we leave the
-    // label off (Security stays gated) and report honestly.
+    // verdict clears — apply the optional handoff label. Security's GitHub App
+    // runs independently of the DevOps gate.
     if (DEVOPS_AGENT_MODE !== "off") {
       const dvState = devops.cleared ? "success" : (devops.verdict === "BLOCK" ? "failure" : "error");
       try {
