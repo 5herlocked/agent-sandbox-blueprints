@@ -172,16 +172,14 @@ resource "aws_iam_role_policy" "ack_capability" {
         # UpdateRole → ...), and every intermediate state looks identical from the
         # outside: ACK.ResourceSynced=Unknown and an Application stuck "waiting for
         # healthy state". Granting the full set avoids N more rounds of that.
-        # THREE distinct name shapes per substrate: Lambda has controller, build,
-        # and exec; AgentCore has controller, exec, and invoker roles. Missing any
-        # one stalls that substrate. `*-microvm-*` alone looks like it covers
+        # Lambda has controller, build, and exec roles; AgentCore has execution
+        # and invoker roles. `*-microvm-*` alone does not cover
         # everything and does not: the Lambda controller role is
         # "<cluster>-ack-lambdamicrovms-controller", where the substring is
         # "amicrovms-", so the wildcard never matches. The symptom is remote from
         # the cause — the ACK Role sits ACK.Recoverable with AccessDenied on
         # iam:GetRole, and the Application reports only "waiting for healthy state
-        # of iam.services.k8s.aws/Role/...". AgentCore uses its own controller,
-        # *-agentcore-exec, and cluster-scoped invoker names, not microvm patterns.
+        # of iam.services.k8s.aws/Role/...". AgentCore role names use separate patterns.
         Resource = [
           # The lambdamicrovms controller's own role (templates/iam).
           "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/${local.cluster_name}-ack-lambdamicrovms-controller",
@@ -214,25 +212,19 @@ resource "aws_iam_role_policy" "ack_capability" {
       {
         Sid    = "AgentCoreRuntimes"
         Effect = "Allow"
-        # Managed ACK bundles the bedrockagentcorecontrol controller (verified live:
-        # capability 46.184.0 installs its CRDs and reconciles AgentRuntime with this
-        # role), so the AgentCore substrate runs NO controller of its own. Without
-        # these actions the AgentRuntime sits ACK.Recoverable with
-        # "not authorized to perform: bedrock-agentcore:CreateAgentRuntime".
+        # Controller evidence: bedrockagentcorecontrol pkg/resource/agent_runtime/sdk.go
+        # and pkg/resource/agent_runtime_endpoint/sdk.go call get/create/update/delete;
+        # pkg/tags/sync.go calls tag/untag/list-tags. Managed ACK bundles the
+        # controller; there is no substrate-specific controller IAM role.
         Action = [
           "bedrock-agentcore:CreateAgentRuntime",
           "bedrock-agentcore:UpdateAgentRuntime",
           "bedrock-agentcore:DeleteAgentRuntime",
           "bedrock-agentcore:GetAgentRuntime",
-          "bedrock-agentcore:ListAgentRuntimes",
-          "bedrock-agentcore:ListAgentRuntimeVersions",
-          # The controller also manages the runtime's DEFAULT endpoint (live: the
-          # next AccessDenied after CreateAgentRuntime was CreateAgentRuntimeEndpoint).
           "bedrock-agentcore:CreateAgentRuntimeEndpoint",
           "bedrock-agentcore:GetAgentRuntimeEndpoint",
           "bedrock-agentcore:UpdateAgentRuntimeEndpoint",
           "bedrock-agentcore:DeleteAgentRuntimeEndpoint",
-          "bedrock-agentcore:ListAgentRuntimeEndpoints",
           "bedrock-agentcore:TagResource", "bedrock-agentcore:UntagResource",
           "bedrock-agentcore:ListTagsForResource",
         ]
@@ -241,18 +233,13 @@ resource "aws_iam_role_policy" "ack_capability" {
       {
         Sid    = "AgentCoreWorkloadIdentity"
         Effect = "Allow"
-        # CreateAgentRuntime also creates and tags the runtime's workload identity
-        # (live: "not authorized to perform: bedrock-agentcore:TagResource on
-        # workload-identity-directory/default/workload-identity/*"). The identity
-        # lives in the account's default directory, not under the runtime ARN.
+        # Service evidence: CreateAgentRuntime required create/delete identity and
+        # TagResource on workload-identity-directory/default/workload-identity/*
+        # (observed AccessDenied). The identity is not under the runtime ARN.
         Action = [
           "bedrock-agentcore:CreateWorkloadIdentity",
-          "bedrock-agentcore:GetWorkloadIdentity",
-          "bedrock-agentcore:UpdateWorkloadIdentity",
           "bedrock-agentcore:DeleteWorkloadIdentity",
-          "bedrock-agentcore:ListWorkloadIdentities",
-          "bedrock-agentcore:TagResource", "bedrock-agentcore:UntagResource",
-          "bedrock-agentcore:ListTagsForResource",
+          "bedrock-agentcore:TagResource",
         ]
         Resource = "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${var.region}:${local.account_id}:workload-identity-directory/*"
       },
