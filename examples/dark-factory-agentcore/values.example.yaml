@@ -1,6 +1,4 @@
-# Copy to values.yaml (gitignored) and edit. These are the chart's REAL keys —
-# an earlier version of this file used github.repo / agent.image, which NO template
-# reads, so editing it changed nothing and the run silently used the defaults.
+# Copy to values.yaml (gitignored) and edit these chart keys.
 
 trigger:
   argoEvents:

@@ -72,26 +72,20 @@ spec:
 {{- end }}
   templates:
 
-    # ---- DAG ----
-    # invoke → coder → [ verify fan: holdout-gate ∥ security-review ∥ devops-review ]
-    # → status. Every verify step runs OUTSIDE the coder (trusted hub pod), is gated
-    # on a PR existing, and is advisory in v1 (posts a commit status; never fails the
-    # run unless its *.blocking / blockSeverity is raised). `status` waits for all
-    # enabled verify steps via its dependencies list.
     # ---- DAG (AgentCore Runtime, one disposable session per workflow) ----
-    # invoke-agentcore → drive-coder (poll GitHub for PR) → stop-session.
-    # Gates run after the coder completes. onExit repeats stop for failed runs too.
+    # invoke → drive-coder → stop-session and gates in parallel → status.
+    # onExit repeats stop for failed runs too.
     - name: main
       dag:
         tasks:
           # 1. Start the coder in a fresh session on the READY platform runtime.
           - name: invoke-agentcore
             template: invoke-agentcore
-           # 2. Poll GitHub for the PR the coder opens.
-           - name: drive-coder
-             template: await-coder
-             dependencies: [invoke-agentcore]
-           # 3. Stop the session after the PR; gates start at the same time.
+          # 2. Poll GitHub for the PR the coder opens.
+          - name: drive-coder
+            template: await-coder
+            dependencies: [invoke-agentcore]
+          # 3. Stop the session after the PR; gates start at the same time.
           - name: stop-session
             template: stop-agentcore-session
             dependencies: [drive-coder]
@@ -100,7 +94,7 @@ spec:
               failed: true
               error: true
 {{- if .Values.holdout.enabled }}
-          # P2 — holdout gate: hidden scenarios + a different-family judge.
+          # P2 — holdout gate: hidden scenarios + a distinct Haiku judge.
           - name: holdout-gate
             template: holdout-gate
             dependencies: [drive-coder]
@@ -111,13 +105,7 @@ spec:
                   value: "{{`{{tasks.drive-coder.outputs.parameters.pr-number}}`}}"
 {{- end }}
 {{- if .Values.review.enabled }}
-          # P3 — REAL AWS Frontier Agents, ordered: DevOps FIRST, then Security.
-          #
-          # DevOps Agent (release readiness) runs via the Claude Code plugin INSIDE
-          # the coder step (no headless API), so there is no separate DAG task for
-          # it here — its verdict is reported by the coder and, on a clear verdict,
-          # the coder applies the `needs-security-review` label. This `devops-gate`
-          # step confirms the label is present (DevOps cleared) before Security runs.
+          # P3 — independent review gates; both depend on drive-coder.
           - name: devops-gate
             template: devops-gate
             dependencies: [drive-coder]
@@ -126,11 +114,8 @@ spec:
               parameters:
                 - name: pr-number
                   value: "{{`{{tasks.drive-coder.outputs.parameters.pr-number}}`}}"
-          # Security Agent — WAITS FOR the real aws-security-agent[bot]'s own review
-          # and mirrors its verdict into dark-factory/security. The App bot reviews
-          # autonomously + IN PARALLEL with the DevOps bot, so this runs alongside
-          # devops-gate (depends on drive-coder, NOT gated behind DevOps clearing —
-          # otherwise a slow DevOps review would skip the security signal entirely).
+          # Security Agent mirrors its App's review into dark-factory/security;
+          # it does not wait for devops-gate.
           - name: security-agent
             template: security-agent
             dependencies: [drive-coder]
@@ -187,7 +172,7 @@ spec:
     - name: invoke-agentcore
       serviceAccountName: {{ .Values.agentcore.invokerServiceAccount }}
       activeDeadlineSeconds: 720
-       script:
+      script:
         image: {{ .Values.agentcore.stepImage }}
         command: [sh]
         env:
@@ -250,15 +235,14 @@ spec:
           echo "[invoke] response: $(head -c 120 /tmp/invoke.out)"
 
     # ---- 2. Wait for the coder VM to finish — GitHub is the completion bus ----
-    # The coder image (baked into the SandboxTemplate) auto-runs on VM start,
-    # reads DF_* env, implements + tests, pushes df/issue-N, and opens the PR
-    # itself using the short-TTL gh-token projected into the VM. The coder is
-    # credential-less to the k8s API (no SA token), so it CANNOT signal via a pod
+    # The host writes the token from the invocation payload to a 0600 file;
+    # the coder reads DF_* env, implements + tests, pushes df/issue-N, and opens
+    # the PR. The coder has no k8s API credential, so it cannot signal via a pod
     # annotation — it self-reports through GitHub. This step polls the GitHub API
     # (with the workflow's own token) for a PR whose head is df/issue-N, and
     # treats the head commit's dark-factory/implementation check as the verdict.
-     - name: await-coder
-       activeDeadlineSeconds: {{ mul .Values.coder.runTimeoutMinutes 60 }}
+    - name: await-coder
+      activeDeadlineSeconds: {{ mul .Values.coder.runTimeoutMinutes 60 }}
       script:
         image: {{ .Values.stepImage }}
         command: [sh]
@@ -327,8 +311,8 @@ spec:
     # ---- 2b. Holdout gate (P2) — train/test separation for code ----
     # Runs on the HUB (a trusted step, NOT the Kata VM). Checks out the coder's
     # PR branch, diffs it vs base, then runs evaluate.js: each hidden scenario
-    # gets its executable test run against the built code AND a different-family
-    # judge (Nova) vote (2-of-3). Gate = passRatio >= threshold. The hidden
+    # gets its executable test run against the built code AND a distinct
+    # Haiku judge vote (2-of-3). Gate = passRatio >= threshold. The hidden
     # scenarios come from the df-holdout-* ConfigMaps mounted here — they are
     # NEVER mounted into the sandbox, so the coder cannot see or edit them.
     # v1 is advisory: the gate result is posted as the dark-factory/holdout commit
@@ -440,7 +424,7 @@ spec:
           fi
 
           # Post the holdout verdict as a commit status on the PR head SHA. The
-          # coder image has no curl, so use node's https (always present). Retry
+           # Use node's https to post the result. Retry
           # transient failures so a blip doesn't drop the verdict.
           GH_TOKEN="${GH_TOKEN}" REPO="${REPO}" SHA="${SHA}" STATE="${STATE}" DESC="${DESC}" node -e '
             const https=require("https");
@@ -475,8 +459,7 @@ spec:
     # The AWS DevOps Agent release-readiness review is its own GitHub App that
     # auto-reviews every PR and posts a check-run / commit status (its native model
     # — there is NO headless code-review API). This step polls the PR head for that
-    # check and emits cleared=true|false, which gates the Security Agent step so
-    # DevOps reviews FIRST, Security SECOND (docs §6.2).
+    # check and emits cleared=true|false for the consolidated verdict.
     #
     # Mode (devopsAgent.gate):
     #   check   → wait for the DevOps Agent's own check-run (context matches
@@ -484,8 +467,8 @@ spec:
     #             real GitHub-App path (needs the one-time console repo connect).
     #   label   → fallback: wait for the coder-applied handoffLabel (used only if
     #             you drive DevOps via the coding-agent plugin instead of the App).
-    # If DevOps never reports within the window, cleared=false → Security is skipped
-    # and the sticky status shows DevOps not-run (NEVER a fake pass). Advisory: this
+    # If DevOps never reports within the window, cleared=false; Security runs
+    # independently and the sticky status reports both outcomes. Advisory: this
     # step itself never fails the run.
     - name: devops-gate
       inputs:
@@ -583,9 +566,8 @@ spec:
               path: /tmp/cleared
               default: "false"
 
-    # ---- 2d. security-agent (P3, step 2) — REAL AWS Security Agent, headless ----
-    # Runs SECOND, only after DevOps cleared (label present). A trusted hub-side
-    # step that clones df/issue-N read-only, stages {source archive, unified diff}
+    # ---- 2d. security-agent (P3) — AWS Security Agent GitHub App ----
+    # Runs alongside devops-gate after drive-coder.
     # SINGLE SECURITY SIGNAL = THE REAL AWS SECURITY AGENT BOT.
     # We do NOT run a second headless scan (that redundant path disagreed with the
     # bot — reported "no findings" while aws-security-agent[bot] flagged real issues
@@ -630,7 +612,7 @@ spec:
 
 {{- if .Values.deployTest.enabled }}
     # ---- 2d. detect-deployable (P4) — does the diff touch deployable artifacts? ----
-    # Emits `deployable = true|false`, which gates the expensive deploy-test step.
+    # Emits `kind = k8s|terraform|none`, which gates deploy-test.
     # Uses the GitHub compare API (authoritative changed-file list) rather than a
     # local git diff — a depth-1 clone + depth-1 base fetch share no merge-base, so
     # `origin/BASE...HEAD` yields nothing (observed: empty file list → false).

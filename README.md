@@ -31,7 +31,7 @@ experience:
 |---|---|---|
 | **Kata micro-VM** | Hardware-isolated pods on nested-virt EKS nodes — your own kernel per sandbox, three hypervisors (Cloud Hypervisor, QEMU, Firecracker) | Production-ready today; long-lived workspaces; GPU (via QEMU) |
 | **AWS Lambda MicroVM** | Serverless Firecracker VMs provisioned on demand, suspended while idle, terminated at merge | Bursty agent work; scale-to-zero economics; no node pool to operate |
-| **Amazon Bedrock AgentCore Runtime** | Managed microVM compute with disposable sessions; ACK/KRO create the runtime and V2 restores an idle snapshot per session | Separate coding rounds without a retained workspace; direct Bedrock inference (not yet live-verified here) |
+| **Amazon Bedrock AgentCore Runtime** | Managed microVM compute with disposable sessions; ACK/KRO create the runtime and V2 restores an idle snapshot per session | Separate coding rounds without a retained workspace; direct Bedrock inference ([verified scope](docs/SUBSTRATES.md)) |
 
 Pick one, or run them side by side. **The pipeline, review gates, and UX are identical** — the only
 difference is a label on the GitHub issue.
@@ -100,7 +100,6 @@ examples/
   dark-factory-kata/    Run the pattern on Kata
   dark-factory-lambda/  Run the pattern on Lambda MicroVM
   dark-factory-agentcore/            Run the pattern on AgentCore Runtime
-  dark-factory-agentcore-instances/  ACRI placeholder (not deployable)
 docs/               Architecture, substrate comparison, diagrams, prerequisites, troubleshooting
 ```
 
@@ -167,7 +166,7 @@ task down        # destroys everything, including the sandboxes and node pools
 | **Provisioning** | Pre-warmed pool → instant claim | On-demand, ~90 s cold start | Runtime created once; V2 snapshot restores for each new session (not benchmarked here) |
 | **Scale to zero** | Node pool consolidates when idle | **VM suspends between rounds** | Coder session stops each round; runtime remains provisioned |
 | **Persistent workspace** | ✅ Volume-backed | ❌ Read-only rootfs (`/tmp` only) | ❌ Fresh `/tmp` workspace each round; GitHub holds state |
-| **GPU** | ✅ via `kata-qemu` (VFIO) | ❌ | ❌ In this microVM variant; [ACRI](examples/dark-factory-agentcore-instances/README.md) is a blocked placeholder |
+| **GPU** | ✅ via `kata-qemu` (VFIO) | ❌ | ❌ In this microVM variant; ACRI is [blocked by the ACK SDK model](docs/ROADMAP.md) |
 | **Maturity** | Production-ready | Preview / pre-GA | Not yet live-verified in this blueprint |
 
 Full comparison, benchmark timings, and the VMM capability matrix:

@@ -64,9 +64,8 @@ resource "aws_iam_role_policy" "llm_gateway_bedrock" {
       # Scoped to Anthropic foundation models and the cross-region inference
       # profiles. BOTH the coder (claude-sonnet) and the holdout judge
       # (holdout.judgeModel, claude-haiku) must fall inside this list: a judge
-      # model outside it gets a 403 that evaluate.js can only report as
-      # "judge=0/3", so the holdout gate fails with every test green (live, with
-      # the earlier Nova default). Widen deliberately if you switch families.
+      # model outside it gets a 403 that evaluate.js reports as "judge=0/3",
+      # even when tests pass. Widen deliberately if you switch families.
       Resource = [
         "arn:${data.aws_partition.current.partition}:bedrock:*::foundation-model/anthropic.*",
         "arn:${data.aws_partition.current.partition}:bedrock:*:${local.account_id}:inference-profile/us.anthropic.*",

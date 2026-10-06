@@ -1,6 +1,6 @@
 # ── AWS Load Balancer Controller ──────────────────────────────────────────────
 #
-# WHY THIS IS REQUIRED, not optional garnish.
+# The webhook Service requires an AWS Load Balancer Controller on EKS 1.36.
 #
 # The Dark Factory is event-driven: labelling a GitHub issue posts a webhook to the
 # Argo Events EventSource, which submits the Workflow. That needs a public address,

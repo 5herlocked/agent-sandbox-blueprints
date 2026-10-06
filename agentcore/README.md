@@ -2,8 +2,8 @@
 
 Runs the shared dark-factory coder in a disposable AgentCore Runtime session.
 The same `entrypoint.js` clones the issue branch, runs the coder, and opens a PR.
-The workflow starts each round with `InvokeAgentRuntime` and stops that session
-after the coder finishes; review and fix rounds use new sessions, not suspend.
+The workflow starts each round with `InvokeAgentRuntime`; session stop and review
+gates both start after the coder finishes. Fix rounds use new sessions, not suspend.
 
 ## What gets installed
 
@@ -14,8 +14,7 @@ after the coder finishes; review and fix rounds use new sessions, not suspend.
 | `templates/kro-rgd/` | One `AgentCoreSandbox` CRD and platform instance, composed of an ACK execution role and AgentRuntime |
 | `image/` | arm64 coder image wrapper: `/ping` health and `/invocations` launch |
 
-Managed KRO watches the `kro.run` API group; a different `agentcore.apiGroup`
-can leave the graph Inactive. Managed ACK reconciles everything here: its `iam`
+Managed KRO watches the `kro.run` API group. Managed ACK reconciles everything here: its `iam`
 and `eks` controllers create the roles and Pod Identity, and its bundled
 `bedrockagentcorecontrol` controller creates the `AgentRuntime`. This substrate
 installs NO controller of its own. The ACK capability role must be allowed the
@@ -103,15 +102,17 @@ payload instead. Only `/tmp` is writable; the token is stored at
 Each round gets a new Argo workflow UID as its session ID. On a fix round the
 coder clones the existing `df/issue-N` branch from GitHub; no session storage
 or persistent local filesystem is used. The workflow calls
-`StopRuntimeSession` after the PR appears and again at exit as a safeguard.
+`StopRuntimeSession` after the PR appears, in parallel with review gates, and
+again at exit as a safeguard.
 The in-process `409` guard prevents concurrent launches in one live container,
 but it does **not** ensure exactly-once execution after runtime loss. If an
 invoke result is ambiguous, stop the prior session before retrying.
 
 ACK 1.15.1 does not expose `AgentRuntime.spec.platformVersion` or
 `capacityProviderConfiguration`, and it has no `CapacityProvider` CRD. The
-Taskfile reads `agentcore.platformVersion` (`V2`), calls the AWS
-`update-agent-runtime` API after ACK reports READY, and waits for READY again;
+Taskfile defaults `AGENTCORE_PLATFORM_VERSION` to `V2`, calls the AWS
+`update-agent-runtime` API after the runtime reports READY with the requested
+network configuration, and waits for READY again;
 do not add that field to this RGD. AgentCore Runtime Instances (ACRI) remain
 blocked on an ACK SDK-model update. This chart declares ordinary AgentCore
 Runtime only.

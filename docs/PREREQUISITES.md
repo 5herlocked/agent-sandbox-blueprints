@@ -48,6 +48,10 @@ region:
 | **ACK** | Declarative IAM + S3 for the Lambda MicroVM substrate |
 | **KRO** | Composes those ACK resources into one CRD |
 
+If Identity Center runs in a different region from the EKS cluster, set
+`argocd_idc_region` in `terraform.tfvars` to that region. Managed ArgoCD uses
+it to resolve `argocd_idc_instance_arn` and the admin identities.
+
 If any is unavailable, set the matching `enable_managed_*` to `false` in
 `terraform.tfvars` and install the equivalent yourself — the failure message tells you
 which flag to flip.

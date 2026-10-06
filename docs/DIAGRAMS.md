@@ -20,10 +20,10 @@ flowchart TD
     DFRUNL --> PROV["provision-microvm<br/>(create Microvm CR + POST /run)"] --> LCODE["drive-coder"]
     DFRUNA --> INV["invoke-agentcore<br/>(new runtime session)"] --> ACODE["await-coder<br/>(GitHub PR)"]
     ACODE --> STOP["stop-agentcore-session"]
+    ACODE --> GATES
     LCODE --> SUSP["suspend-microvm<br/>(scale-to-zero)"]
     KCODE --> GATES["holdout · detect→deploy-test<br/>devops-gate · security-agent"]
     SUSP --> GATES
-    STOP --> GATES
     GATES --> STATUS["status (consolidated verdict)"]
     STATUS --> EXIT["onExit: Kata deletes claim ·<br/>Lambda KEEPS suspended VM ·<br/>AgentCore stops session"]
 ```
@@ -90,14 +90,15 @@ flowchart LR
     CODE -->|"models: direct, execution role"| BED["Bedrock"]
     CODE -->|"branch and feedback"| GH["GitHub → PR"]
     GH --> GATES["shared review gates"]
-    INV --> STOP["stop-agentcore-session<br/>after coder + onExit"]
+    GH --> STOP["stop-agentcore-session<br/>after coder + onExit"]
     STOP --> ACK
 ```
 
 The host reports `HealthyBusy` while the coder runs. A new round starts a new
 session; GitHub holds the branch and feedback. `PUBLIC` is the default network
 mode; `VPC` uses private subnets and the Terraform egress security group. V2
-restores an idle snapshot for each session. This path is not yet live-verified.
+restores an idle snapshot for each session. See the
+[verified scope](./SUBSTRATES.md).
 
 ---
 

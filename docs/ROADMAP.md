@@ -57,7 +57,7 @@ installed and usable for stateless workloads, but not for the Dark Factory pipel
 | Long-lived workspaces (remote IDE) | The Kata substrate + a persistent volume is most of a Coder/Gitpod-style dev environment; `code-server` in the sandbox is a small step |
 | GPU sandboxes | `kata-qemu` + VFIO on a nested-virt GPU family, for agents that need inference locally |
 | Cost reporting per run | Attribute Bedrock tokens + compute minutes to a PR, so the economics are visible |
-| AgentCore Runtime Instances (ACRI) and V2 in ACK | Ask `aws-controllers-k8s/bedrockagentcorecontrol-controller` maintainers to bump the SDK model so `CapacityProvider`, `capacityProviderConfiguration`, and `platformVersion` are declarative. Until then, [ACRI is a placeholder](../examples/dark-factory-agentcore-instances/README.md) and `task agentcore-v2` sets V2 after ACK creates the runtime. |
+| AgentCore Runtime Instances (ACRI) and V2 in ACK | Ask `aws-controllers-k8s/bedrockagentcorecontrol-controller` maintainers to bump the SDK model so `CapacityProvider`, `capacityProviderConfiguration`, and `platformVersion` are declarative. ACRI remains blocked on that SDK model; `task agentcore-v2` sets V2 after ACK creates the ordinary runtime. |
 | Gate WorkflowTemplate `templateRef` deduplication | Gate templates are copy-pasted across three WorkflowTemplates; `templateRef` dedup pending. Keep existing Kata and Lambda templates stable until this is done separately. |
 
 ## Non-goals

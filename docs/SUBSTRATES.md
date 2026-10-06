@@ -6,6 +6,12 @@ Kata and Lambda were measured on identical issues run through the same cluster.
 The Kata/Lambda timings below are measured runs. The AgentCore VPC timing is
 from a different issue and is not a head-to-head benchmark.
 
+**AgentCore verified scope:** Managed ACK/KRO created the platform runtime;
+PUBLIC and VPC network modes, V2 snapshot setup, initial issue-to-PR runs,
+a fix round, and label-triggered runs were exercised live. The substrate has
+two IAM roles: runtime execution and workflow invocation. Review App behavior
+depends on whether those external Apps are installed in the target repository.
+
 - **Kata substrate — Kata micro-VM** (mature, default): the agent runs in a hardware-isolated Kata
   pod on a self-managed nested-virt EKS node group.
 - **Lambda MicroVM substrate — AWS Lambda MicroVM** (pre-GA): the agent runs in a Firecracker MicroVM
@@ -29,7 +35,7 @@ difference is *where the agent executes* and *how it's provisioned*.
 | **LLM path** | Bifrost gateway (in-cluster) + Langfuse traces | **Bedrock-direct** (exec role) — no cluster network | **Bedrock-direct** (runtime execution role), in PUBLIC or VPC mode |
 | **Scale-to-zero when idle** | ❌ node pool runs continuously | ✅ **suspend-to-zero** between PR and merge | Session stops after coder; runtime remains available for later sessions |
 | **Fix-round mechanic** | fresh pod each round | **resume the SAME suspended VM** (warm); recreate if the pre-GA resume fails | New session each round; GitHub holds branch and review state |
-| **Infra to manage** | nested-virt node group (Karpenter/MNG) | none — serverless MicroVMs | ACK controller, one KRO runtime; no agent node pool |
+| **Infra to manage** | nested-virt node group (Karpenter/MNG) | none — serverless MicroVMs | Managed ACK, one KRO runtime; no agent node pool |
 | **Observability** | native `kubectl logs` | custom `/logs` HTTP endpoint (no runtime CloudWatch) | AgentCore runtime CloudWatch logs |
 | **Maturity** | production-ready today | pre-GA (preview) — pilot-grade | One live VPC-mode issue-to-PR run verified; operational cleanup needs care |
 | **Limits** | Node pool and pod configuration | Service quotas | Factory reports 2 vCPU / 8 GB RAM / ~8 GB disk (not measured here) |
@@ -104,7 +110,7 @@ calls `aws lambda-microvms suspend/resume-microvm`), not a bridge or a lifecycle
 
 **AgentCore — `df-run-agentcore` (runtime-native; no SandboxClaim):**
 ```
-invoke-agentcore → await-coder (GitHub PR) → stop-agentcore-session → { holdout, devops-gate, security, detect → deploy-test } → status → onExit(stop session again)
+invoke-agentcore → await-coder (GitHub PR) → { stop-agentcore-session ∥ holdout ∥ devops-gate ∥ security ∥ detect → deploy-test } → status → onExit(stop session again)
 ```
 ACK creates the runtime once through KRO. The workflow invokes a disposable session per
 round with its workflow UID; the host starts `entrypoint.js` and answers `/ping`
