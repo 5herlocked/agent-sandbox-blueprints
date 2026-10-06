@@ -50,6 +50,11 @@ spec:
       runtimeARN: ${agentRuntime.status.ackResourceMetadata.arn}
       runtimeID: ${agentRuntime.status.agentRuntimeID}
       runtimeStatus: ${agentRuntime.status.status}
+      # Nothing reads this, but KRO refuses to update a generated CRD when a status
+      # property is removed ("breaking changes detected: Property executionRoleARN
+      # was removed") and leaves the graph Inactive. Removing it means recreating
+      # the CRD, which deletes the instance and orphans the runtime. Keep it.
+      executionRoleARN: ${execRole.status.ackResourceMetadata.arn}
   resources:
     # The runtime assumes this role to pull ECR, call Bedrock and write logs.
     - id: execRole
