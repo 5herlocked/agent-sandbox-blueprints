@@ -185,6 +185,7 @@ tasks:
         export AGENTCORE_NETWORK_MODE='{{.AGENTCORE_NETWORK_MODE | default "PUBLIC"}}'
         source agentcore/network.sh
         WANT='{{.AGENTCORE_PLATFORM_VERSION | default "V2"}}'
+        WANT_IMAGE='{{.AGENTCORE_IMAGE | default ""}}'
         echo "Waiting for AgentCoreSandbox {{.AGENTCORE_NAMESPACE}}/{{.AGENTCORE_SANDBOX}} runtime ID"
         ID=''
         for i in $(seq 1 240); do
@@ -198,14 +199,14 @@ tasks:
           local i state status matched
           for i in $(seq 1 240); do
             state="$(aws bedrock-agentcore-control get-agent-runtime --agent-runtime-id "$ID" \
-              --query '{status:status,network:networkConfiguration,platform:platformVersion}' --output json)"
+              --query '{status:status,network:networkConfiguration,platform:platformVersion,image:agentRuntimeArtifact.containerConfiguration.containerUri}' --output json)"
             status="$(printf '%s' "$state" | python3 -c 'import json,sys;print(json.load(sys.stdin)["status"])')"
             case "$status" in *FAILED*) echo "ERROR: runtime $ID: $state" >&2; return 1;; esac
             matched="$(printf '%s' "$state" | python3 -c '
         import json,sys,os
         d=json.load(sys.stdin); n=d.get("network") or {}; c=n.get("networkModeConfig") or {}; mode=os.environ["AGENTCORE_NETWORK_MODE"]
         ok=n.get("networkMode")==mode and (mode=="PUBLIC" or (set(c.get("subnets",[]))==set(json.loads(os.environ["AGENTCORE_SUBNETS"])) and set(c.get("securityGroups",[]))==set(json.loads(os.environ["AGENTCORE_SECURITY_GROUPS"]))))
-        print("yes" if ok and (not sys.argv[1] or d.get("platform")==sys.argv[1]) else "no")
+        print("yes" if ok and (not sys.argv[1] or d.get("platform")==sys.argv[1]) and (not os.environ.get("WANT_IMAGE") or d.get("image")==os.environ["WANT_IMAGE"]) else "no")
         ' "$1")"
             [ "$status" = READY ] && [ "$matched" = yes ] && return 0
             sleep 5
@@ -213,6 +214,7 @@ tasks:
           echo "ERROR: runtime $ID not READY on $AGENTCORE_NETWORK_MODE/$1 in 20 minutes: $state" >&2
           return 1
         }
+        export WANT_IMAGE
         poll ''
         CUR="$(aws bedrock-agentcore-control get-agent-runtime --agent-runtime-id "$ID" --query platformVersion --output text)"
         if [ "$CUR" = "$WANT" ]; then echo "✓ AgentCore runtime $ID already on $WANT"; exit 0; fi
