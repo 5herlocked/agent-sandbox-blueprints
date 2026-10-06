@@ -97,10 +97,12 @@ holdout:
   # 2-of-3 majority per scenario smooths judge non-determinism.
   judgeRuns: 3
   judgeQuorum: 2
-  # The judge model — MUST be a different family than the coder (claude-sonnet).
-  # Bifrost passes Bedrock model IDs through directly (models: ["*"]); verified
-  # us.amazon.nova-pro-v1:0 → 200 on /anthropic.
-  judgeModel: us.amazon.nova-pro-v1:0
+  # The judge model — a DIFFERENT model from the coder (claude-sonnet) so the
+  # gaming check is not self-review. Haiku 4.5: same family, so the LLM gateway
+  # IAM (anthropic.* only, infrastructure/terraform/iam.tf) covers it. Live
+  # finding: the earlier Nova default was never allowed by that role, so every
+  # judge call 403'd and read as judge=0/3 with all tests green.
+  judgeModel: us.anthropic.claude-haiku-4-5-20251001-v1:0
   # Bifrost gateway the judge reaches (ClusterIP — same reason as the coder).
   bifrostUrl: ""  # injected by `task demo` (see bifrost.url)
   # v1: report-only (advisory). Set true to make a failed gate fail the workflow.
@@ -128,7 +130,13 @@ holdout:
 #      {src,diff} in S3 → create-code-review → start-job → list-findings via the
 #      workflow's IRSA role. Setup: docs/dark-factory/AGENT-INSTALL.md.
 review:
-  enabled: true
+  # Master switch for the EXTERNAL review agents (devops-gate + security-agent
+  # DAG tasks). OFF: those agents are GitHub Apps (securityAgent/devopsAgent
+  # below, both off by default) and without them installed on the repo the
+  # gates wait devopsAgent.waitSeconds for a check-run that never arrives, then
+  # hit their deadline and mark the whole run Failed after a successful PR
+  # (ROADMAP gap #4). Turn on only after installing the Apps.
+  enabled: false
   # The label the DevOps clear-gate applies; the Security Agent step only runs
   # once it's present (so DevOps reviews first, Security second).
   handoffLabel: needs-security-review

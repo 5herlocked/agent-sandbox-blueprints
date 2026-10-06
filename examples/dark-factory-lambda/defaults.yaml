@@ -97,10 +97,12 @@ holdout:
   # 2-of-3 majority per scenario smooths judge non-determinism.
   judgeRuns: 3
   judgeQuorum: 2
-  # The judge model — MUST be a different family than the coder (claude-sonnet).
-  # Bifrost passes Bedrock model IDs through directly (models: ["*"]); verified
-  # us.amazon.nova-pro-v1:0 → 200 on /anthropic.
-  judgeModel: us.amazon.nova-pro-v1:0
+  # The judge model — a DIFFERENT model from the coder (claude-sonnet) so the
+  # gaming check is not self-review. Haiku 4.5: same family, so the LLM gateway
+  # IAM (anthropic.* only, infrastructure/terraform/iam.tf) covers it. Live
+  # finding: the earlier Nova default was never allowed by that role, so every
+  # judge call 403'd and read as judge=0/3 with all tests green.
+  judgeModel: us.anthropic.claude-haiku-4-5-20251001-v1:0
   # Bifrost gateway the judge reaches (ClusterIP — same reason as the coder).
   bifrostUrl: ""  # injected by `task demo` (see bifrost.url)
   # v1: report-only (advisory). Set true to make a failed gate fail the workflow.
