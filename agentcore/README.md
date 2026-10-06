@@ -73,12 +73,9 @@ source of truth for current runtime state. Creation and V2 snapshot preparation
 can take minutes.
 
 On a PUBLIC ↔ VPC switch, `task agentcore` waits for the AWS runtime to report
-`READY`, V2, and the requested network configuration. A live PUBLIC → VPC
-update created version 3, retained V2, and took about 9 minutes 25 seconds to
-reach READY. The VPC run for issue #9 opened PR #10 in 2 minutes and finished
-its workflow in 3 minutes 17 seconds; both implementation and holdout passed.
-This is a different issue from the prior PUBLIC run (~2 minutes 47 seconds to
-PR), so the times are not a controlled latency comparison.
+`READY`, V2, the requested image digest, and the requested network configuration.
+See [verified runs and timings](../docs/SUBSTRATES.md) for the measured scope;
+the VPC issue was different from the PUBLIC issue, not a latency comparison.
 
 Switching back to PUBLIC creates another version. Check AWS for PUBLIC/READY/V2
 before removing the Terraform security group. An earlier VPC version can still
