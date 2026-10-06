@@ -187,22 +187,46 @@ tasks:
         WANT='{{.AGENTCORE_PLATFORM_VERSION | default "V2"}}'
         echo "Waiting for AgentCoreSandbox $NS/$SANDBOX and its runtime ID"
         ID=''
-        for i in $(seq 1 120); do
+        for i in $(seq 1 240); do
           ID="$(kubectl get agentcoresandbox "$SANDBOX" -n "$NS" -o jsonpath='{.status.runtimeID}' 2>/dev/null || true)"
           ST="$(kubectl get agentcoresandbox "$SANDBOX" -n "$NS" -o jsonpath='{.status.runtimeStatus}' 2>/dev/null || true)"
           if [ "$ST" = READY ] && [ -n "$ID" ]; then break; fi
           case "$ST" in *FAILED*) echo "ERROR: sandbox runtime status $ST" >&2; exit 1;; esac
           sleep 5
         done
-        [ "$ST" = READY ] && [ -n "$ID" ] || { echo "ERROR: sandbox did not reach READY in 10 minutes (status=${ST:-missing}, id=${ID:-missing})" >&2; exit 1; }
-        # KRO status can lag AWS after an update; read the service's actual state.
-        for i in $(seq 1 120); do
-          ST="$(aws bedrock-agentcore-control get-agent-runtime --agent-runtime-id "$ID" --query status --output text)"
-          [ "$ST" = READY ] && break
-          case "$ST" in *FAILED*) echo "ERROR: AgentCore runtime $ID status $ST" >&2; exit 1;; esac
+        [ "$ST" = READY ] && [ -n "$ID" ] || { echo "ERROR: sandbox did not reach READY in 20 minutes (status=${ST:-missing}, id=${ID:-missing})" >&2; exit 1; }
+        # ArgoCD applies the bootstrap asynchronously. READY/V2 on the old mode
+        # is not proof the requested network update has even started yet.
+        WANT_MODE='{{.AGENTCORE_NETWORK_MODE | default "PUBLIC"}}'
+        case "$WANT_MODE" in
+          PUBLIC) WANT_SUBNETS='[]'; WANT_SG='';;
+          VPC)
+            WANT_SUBNETS="$(terraform -chdir={{.TF_DIR}} output -json private_subnet_ids)"
+            WANT_SG="$(terraform -chdir={{.TF_DIR}} output -raw agentcore_security_group_id)"
+            [ -n "$WANT_SG" ] && [ "$WANT_SG" != null ] || { echo 'ERROR: missing AgentCore VPC security group output' >&2; exit 1; }
+            ;;
+          *) echo 'ERROR: AGENTCORE_NETWORK_MODE must be PUBLIC or VPC' >&2; exit 1;;
+        esac
+        for i in $(seq 1 240); do
+          STATE="$(aws bedrock-agentcore-control get-agent-runtime --agent-runtime-id "$ID" --query '{status:status,network:networkConfiguration}' --output json)"
+          ST="$(printf '%s' "$STATE" | python3 -c 'import json,sys;print(json.load(sys.stdin)["status"])')"
+          case "$ST" in *FAILED*) echo "ERROR: AgentCore runtime $ID status $ST (network=$STATE)" >&2; exit 1;; esac
+          MATCH="$(printf '%s' "$STATE" | python3 -c '
+        import json, sys
+        network = json.load(sys.stdin).get("network") or {}
+        mode, subnets, sg = sys.argv[1:]
+        config = network.get("networkModeConfig") or {}
+        print("yes" if network.get("networkMode") == mode and (
+            mode == "PUBLIC" or (
+                set(config.get("subnets", [])) == set(json.loads(subnets))
+                and set(config.get("securityGroups", [])) == {sg}
+            )
+        ) else "no")
+        ' "$WANT_MODE" "$WANT_SUBNETS" "$WANT_SG")"
+          if [ "$ST" = READY ] && [ "$MATCH" = yes ]; then break; fi
           sleep 5
         done
-        [ "$ST" = READY ] || { echo "ERROR: AgentCore runtime $ID stayed $ST for 10 minutes" >&2; exit 1; }
+        [ "$ST" = READY ] && [ "$MATCH" = yes ] || { echo "ERROR: AgentCore runtime $ID did not reach READY with $WANT_MODE network in 20 minutes (actual=$STATE)" >&2; exit 1; }
         CUR="$(aws bedrock-agentcore-control get-agent-runtime --agent-runtime-id "$ID" --query platformVersion --output text)"
         if [ "$CUR" = "$WANT" ]; then echo "✓ AgentCore runtime $ID already on $WANT"; exit 0; fi
         echo "Updating AgentCore runtime $ID from $CUR to $WANT (snapshot preparation can take minutes)"
