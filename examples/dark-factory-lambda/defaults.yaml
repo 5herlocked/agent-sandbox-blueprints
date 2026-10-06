@@ -85,8 +85,8 @@ claimTtlSeconds: 10800
 # + executable tests the coder NEVER sees are stored in a ConfigMap ON THE HUB
 # (rendered from holdout/<repo>/ below). A hub-side eval step (NOT the Kata VM)
 # checks out the coder's df/issue-N branch, runs the hidden executable tests, and
-# asks a DIFFERENT-FAMILY LLM judge (Nova, vs the coder's Claude — defeats
-# self-preference bias) whether each plain-English scenario is satisfied. A
+# asks a different model (Haiku) from the coder (Sonnet), inside the
+# LLM gateway IAM grant, whether each plain-English scenario is satisfied. A
 # scenario PASSES iff its executable test is green AND the judge says yes >=2/3
 # runs. Gate = passRatio >= threshold. The coder is credential-less to the k8s
 # API and never clones the holdout path, so it provably cannot read or edit it.
@@ -97,11 +97,7 @@ holdout:
   # 2-of-3 majority per scenario smooths judge non-determinism.
   judgeRuns: 3
   judgeQuorum: 2
-  # The judge model — a DIFFERENT model from the coder (claude-sonnet) so the
-  # gaming check is not self-review. Haiku 4.5: same family, so the LLM gateway
-  # IAM (anthropic.* only, infrastructure/terraform/iam.tf) covers it. Live
-  # finding: the earlier Nova default was never allowed by that role, so every
-  # judge call 403'd and read as judge=0/3 with all tests green.
+  # Judge must differ from the coder and be inside the gateway IAM grant.
   judgeModel: us.anthropic.claude-haiku-4-5-20251001-v1:0
   # Bifrost gateway the judge reaches (ClusterIP — same reason as the coder).
   bifrostUrl: ""  # injected by `task demo` (see bifrost.url)
