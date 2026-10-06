@@ -108,11 +108,13 @@ cause not established** — do not assume the flag works.
 
 ### 4. Lambda workflow reports Failed after a successful PR
 
-`df-run-lambda` finished `Failed` with `provision-microvm` exiting 1, *after* the PR was
-already built, reviewed and green. So **workflow phase ≠ PR outcome**, in both
-directions (a Kata run reported `Succeeded` while its PR was blocked by an agent). Judge
-a run by its PR checks, not its Argo phase. The failing tail is likely the
-suspend/teardown step.
+The review master switch (`review.enabled`) controls whether the DevOps and Security
+review DAG tasks exist; `devopsAgent.enabled` and `securityAgent.enabled` do not remove
+those tasks. With `review.enabled=true` but both Apps absent, `devops-gate` waits
+`devopsAgent.waitSeconds` (15 minutes) for a check-run that cannot arrive, then the
+workflow can report `Failed` after a good PR. Disable `review.enabled` in local
+`values.yaml` until both Apps are installed. A workflow's phase is not a PR verdict:
+check the PR head's implementation and gate statuses separately.
 
 ### 5. MicrovmImage names are scoped per cluster to avoid collisions
 

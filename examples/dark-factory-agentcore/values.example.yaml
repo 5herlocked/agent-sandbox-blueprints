@@ -24,6 +24,10 @@ agentcore:
 # The runtime image uses the shared coder's default CLI (Claude Code). Engine
 # selection is configured in the runtime image, not in this example's payload.
 
+# microvm.enabled is cluster-wide: every example applies the same shared
+# dark-factory-workflow-sandbox Role. Leave it on when Lambda is installed;
+# disabling it here would remove Lambda's MicroVM RBAC rules.
+
 # ── Review agents ────────────────────────────────────────────────────────────
 # OFF by default: limited preview, and the Security Agent needs IAM you create.
 # Full setup steps: docs/MANUAL-STEPS.md §5.

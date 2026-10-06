@@ -71,15 +71,20 @@ jobs:
 
           with open('examples/_shared/values.yaml') as f:
               shared = yaml.safe_load(f)
-          for key in ('microvm', 'agentcore', 'dark-factory-shared'):
+          for key in ('agentcore', 'dark-factory-shared'):
               shared.pop(key, None)
           failed = False
           for ex in ('dark-factory-kata', 'dark-factory-lambda', 'dark-factory-agentcore'):
               with open(f'examples/{ex}/defaults.yaml') as f:
                   values = yaml.safe_load(f)
-              for key in ('microvm', 'agentcore', 'dark-factory-shared'):
+              for key in ('agentcore', 'dark-factory-shared'):
                   values.pop(key, None)
-              if values == shared:
+              if ex == 'dark-factory-agentcore':
+                  values.pop('microvm', None)
+                  common = {key: value for key, value in shared.items() if key != 'microvm'}
+              else:
+                  common = shared
+              if values == common:
                   print(f'✓ examples/{ex}/defaults.yaml common values in sync')
               else:
                   print(f'✗ examples/{ex}/defaults.yaml common values differ from _shared')

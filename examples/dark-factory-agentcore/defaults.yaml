@@ -130,13 +130,9 @@ holdout:
 #      {src,diff} in S3 → create-code-review → start-job → list-findings via the
 #      workflow's IRSA role. Setup: docs/dark-factory/AGENT-INSTALL.md.
 review:
-  # Master switch for the EXTERNAL review agents (devops-gate + security-agent
-  # DAG tasks). OFF: those agents are GitHub Apps (securityAgent/devopsAgent
-  # below, both off by default) and without them installed on the repo the
-  # gates wait devopsAgent.waitSeconds for a check-run that never arrives, then
-  # hit their deadline and mark the whole run Failed after a successful PR
-  # (ROADMAP gap #4). Turn on only after installing the Apps.
-  enabled: false
+  # Enable only when the review Apps are installed; turn this off locally when
+  # securityAgent/devopsAgent are disabled, or their DAG tasks still wait.
+  enabled: true
   # The label the DevOps clear-gate applies; the Security Agent step only runs
   # once it's present (so DevOps reviews first, Security second).
   handoffLabel: needs-security-review
@@ -293,12 +289,6 @@ agentcore:
   # Pod Identity permits one association per SA. Only invoke/stop use this SA;
   # the platform chart binds it to the runtime invoker role in the Argo namespace.
   invokerServiceAccount: dark-factory-agentcore
-
-# The shared chart defaults enable Lambda's Pod Identity association. Disable it
-# at the SUBCHART scope for this substrate; parent values do not flow into a subchart.
-dark-factory-shared:
-  microvm:
-    enabled: false
 
 # ── Language / stack support ─────────────────────────────────────────────────
 # There is NO per-language profile config here — deliberately. Language support is
