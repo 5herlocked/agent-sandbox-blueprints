@@ -546,7 +546,7 @@ spec:
             fi
             case "$R" in
               cleared) CLEARED=true; echo "[devops-gate] AWS DevOps Agent CLEARED"; break ;;
-              blocked) CLEARED=false; echo "[devops-gate] AWS DevOps Agent returned BLOCK — Security stays gated"; break ;;
+               blocked) CLEARED=false; echo "[devops-gate] AWS DevOps Agent returned BLOCK"; break ;;
               *) echo "[devops-gate] waiting for AWS DevOps Agent review..."; sleep 20 ;;
             esac
           done
@@ -558,7 +558,7 @@ spec:
           # consolidated review (status.js → dark-factory:verdict-review) that
           # mirrors the source-of-truth checks (Build/Holdout/Security/DevOps).
           # The DevOps Agent's own commit status + the App bot's review remain
-          # the authoritative DevOps signal; `cleared` still gates the flow below.
+           # the authoritative DevOps signal; Security runs independently.
       outputs:
         parameters:
           - name: cleared
