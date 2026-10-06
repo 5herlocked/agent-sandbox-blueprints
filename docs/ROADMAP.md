@@ -106,7 +106,7 @@ and Terraform creates no ECR repo for one), yet it executed on a run and posted
 `dark-factory/deploy-test`. Harmless when it passes; misleading when it fails. **Root
 cause not established** — do not assume the flag works.
 
-### 4. Lambda workflow reports Failed after a successful PR
+### 4. Review flags can fail a workflow after a successful PR
 
 The review master switch (`review.enabled`) controls whether the DevOps and Security
 review DAG tasks exist; `devopsAgent.enabled` and `securityAgent.enabled` do not remove

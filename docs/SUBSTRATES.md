@@ -37,7 +37,7 @@ difference is *where the agent executes* and *how it's provisioned*.
 | **Fix-round mechanic** | fresh pod each round | **resume the SAME suspended VM** (warm); recreate if the pre-GA resume fails | New session each round; GitHub holds branch and review state |
 | **Infra to manage** | nested-virt node group (Karpenter/MNG) | none — serverless MicroVMs | Managed ACK, one KRO runtime; no agent node pool |
 | **Observability** | native `kubectl logs` | custom `/logs` HTTP endpoint (no runtime CloudWatch) | AgentCore runtime CloudWatch logs |
-| **Maturity** | production-ready today | pre-GA (preview) — pilot-grade | One live VPC-mode issue-to-PR run verified; operational cleanup needs care |
+| **Maturity** | production-ready today | pre-GA (preview) — pilot-grade | PUBLIC/VPC and V2 live-verified; operational cleanup needs care |
 | **Limits** | Node pool and pod configuration | Service quotas | Factory reports 2 vCPU / 8 GB RAM / ~8 GB disk (not measured here) |
 | **When to pick** | In-cluster access and persistent workspaces | Serverless with suspend/resume | Disposable rounds and direct Bedrock; no retained workspace |
 
