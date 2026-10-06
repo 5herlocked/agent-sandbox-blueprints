@@ -23,6 +23,8 @@ spec:
         agentcore:
           enabled: true
           accountId: "${ACCOUNT_ID}"
+          sandbox:
+            name: ${AGENTCORE_SANDBOX}
           podIdentity:
             clusterName: ${DESTINATION_CLUSTER}
           image:
@@ -33,7 +35,7 @@ spec:
             securityGroups: ${AGENTCORE_SECURITY_GROUPS}
   destination:
     name: ${DESTINATION_CLUSTER}
-    namespace: agent-sandbox-system
+    namespace: ${AGENTCORE_NAMESPACE}
   syncPolicy:
     automated:
       prune: true
