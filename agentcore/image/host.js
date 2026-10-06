@@ -61,6 +61,7 @@ const server = http.createServer((req, res) => {
         DF_BASE_BRANCH: String(d.baseBranch || "main"),
         DF_ISSUE_TITLE: String(d.issueTitle || ""),
         DF_ITERATE_NOTE_B64: String(d.iterateNoteB64 || ""),
+        DF_SUBSTRATE: "Amazon Bedrock AgentCore Runtime microVM",
         USE_BEDROCK: "1",
         AWS_REGION: String(d.region || process.env.AWS_REGION || "us-west-2"),
         WORKSPACE: "/tmp/workspace",

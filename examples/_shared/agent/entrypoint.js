@@ -41,6 +41,9 @@ const ENGINE = (() => {
   return raw.startsWith("kiro") ? "kiro" : "claude";
 })();
 const PROFILE = ENGINE; // back-compat alias used in a few log lines
+// Where this coder is running, for its PR comments. Set by the substrate that
+// spawns it (the AgentCore host sets it); Kata/Lambda leave it unset.
+const SUBSTRATE = process.env.DF_SUBSTRATE || "micro-VM";
 // AWS DevOps Agent — release-readiness review via the coding-agent plugin, run
 // BEFORE the PR opens (docs §6.2). Modes: "claude-plugin" (Claude Code DevOps
 // Agent plugin) | "off". On a clear verdict the coder applies DF_DEVOPS_CLEAR_LABEL
@@ -499,7 +502,7 @@ async function main() {
     try { changed = sh("git", ["diff", "--name-status", `origin/${BASE}...HEAD`], { cwd: repoDir }).trim(); } catch { try { changed = sh("git", ["show", "--name-status", "--oneline", "-1", "HEAD"], { cwd: repoDir }).trim(); } catch {} }
     const filesBlock = changed ? "```\n" + changed.slice(0, 1500) + "\n```" : "_(diff summary unavailable)_";
     await postStickyComment(prNumber, "dark-factory:coding",
-      `### ✅ 🤖 Coding complete (engine: ${ENGINE})\n\nImplemented the change for issue #${ISSUE} on \`${BRANCH}\` in a hardware-isolated Kata micro-VM.\n\n**Files changed:**\n${filesBlock}`);
+      `### ✅ 🤖 Coding complete (engine: ${ENGINE})\n\nImplemented the change for issue #${ISSUE} on \`${BRANCH}\` in a hardware-isolated ${SUBSTRATE}.\n\n**Files changed:**\n${filesBlock}`);
     await postStickyComment(prNumber, "dark-factory:local-test",
       `### ${test.green ? "✅" : "❌"} 🧪 Local testing (in-VM, before PR)\n\n**${test.green ? "Build + unit tests passed" : "Tests NOT green"}** — discovered from the repo's own marker files (no central config).\n\n${test.summary ? "```\n" + String(test.summary).slice(0, 800) + "\n```" : ""}`);
 
