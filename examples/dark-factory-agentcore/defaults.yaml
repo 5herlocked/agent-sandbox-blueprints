@@ -108,11 +108,8 @@ holdout:
   evalImage: ""  # injected by `task demo` from the coder ECR repo
 
 # ── P3: Reviews via the REAL AWS Frontier Agents ─────────────────────────────
-# Two independent reviewers, run OUTSIDE the coder VM (the coder never grades
-# itself). These are the genuine managed AWS agents — NOT linters, NOT a Nova
-# stand-in. Ordering (per the AI-DLC model): DevOps Agent FIRST (broad release
-# readiness) → on clear, add the `needs-security-review` label → Security Agent
-# SECOND (narrow/strict). See docs §6.2 + diagram B.5.
+# Two independent reviewers run outside the coder VM. Their workflow tasks
+# both start after drive-coder; the GitHub Apps review independently.
 #
 #   1. AWS DevOps Agent — Release Readiness code review (cross-repo deps,
 #      standards, access-control, build+test in an AWS-managed env → BLOCK /
@@ -129,8 +126,7 @@ review:
   # Enable only when the review Apps are installed; turn this off locally when
   # securityAgent/devopsAgent are disabled, or their DAG tasks still wait.
   enabled: true
-  # The label the DevOps clear-gate applies; the Security Agent step only runs
-  # once it's present (so DevOps reviews first, Security second).
+  # Optional DevOps label-mode signal; Security does not depend on this label.
   handoffLabel: needs-security-review
   # AUTO-FIX loop: DISABLED. When on, status.js auto-submitted a df-run fix round on a
   # ❌ verdict — but that COLLIDED with the comment-driven df-iterate loop (the pipeline's
@@ -275,7 +271,7 @@ iterate:
 
 # ── AgentCore Runtime substrate (df-run-agentcore ONLY) ──────────────────────
 # Each workflow starts a disposable session on the platform-owned runtime. GitHub
-# holds the branch and feedback between rounds; the session stops before review.
+# holds the branch and feedback between rounds; stop and review start in parallel.
 agentcore:
   region: us-west-2
   namespace: agent-sandbox-system     # where the AgentCoreSandbox instance lives

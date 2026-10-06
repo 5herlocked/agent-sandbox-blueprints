@@ -232,9 +232,9 @@ tasks:
   apply-bootstrap:
     internal: true
     # The bootstrap Applications carry placeholders instead of hardcoded values,
-    # so this repo works forked and under any project_name. Everything they need
-    # comes from terraform outputs — never from the operator's shell or a
-    # hand-edited values file.
+    # so this repo works forked and under any project_name. Cluster values
+    # come from Terraform; the digest and optional network mode come from task
+    # vars. Never require a hand-edited bootstrap manifest.
     #
     # envsubst is deliberately given an explicit variable list: without it, it
     # would also eat legitimate $-syntax inside the manifests (Argo Workflows
