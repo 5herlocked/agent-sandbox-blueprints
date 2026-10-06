@@ -23,9 +23,6 @@ const server = http.createServer((req, res) => {
     return reply(res, 404, { error: "not found" });
   }
   if (busy) return reply(res, 409, { error: "coder already running" });
-  if (!/^application\/json(?:\s*;|\s*$)/i.test(req.headers["content-type"] || "")) {
-    return reply(res, 400, { error: "expected JSON" });
-  }
   const chunks = [];
   let bytes = 0;
   req.on("data", (chunk) => {
@@ -61,21 +58,21 @@ const server = http.createServer((req, res) => {
         DF_BASE_BRANCH: String(d.baseBranch || "main"),
         DF_ISSUE_TITLE: String(d.issueTitle || ""),
         DF_ITERATE_NOTE_B64: String(d.iterateNoteB64 || ""),
+        DF_ITERATE_NOTE: String(d.iterateNote || ""),
         DF_SUBSTRATE: "Amazon Bedrock AgentCore Runtime microVM",
         USE_BEDROCK: "1",
         AWS_REGION: String(d.region || process.env.AWS_REGION || "us-west-2"),
         WORKSPACE: "/tmp/workspace",
         GH_TOKEN_PATH: TOKEN_PATH,
       };
-      if (d.model) env.CODER_MODEL = String(d.model);
-      const child = spawn("node", [process.env.ENTRYPOINT || "/app/entrypoint.js"], {
+      const child = spawn("node", ["/app/entrypoint.js"], {
         env, detached: true, stdio: "inherit",
       });
       busy = true;
       child.on("error", (err) => { busy = false; console.error("[agentcore] coder spawn failed:", err.message); });
       child.on("exit", (code) => { busy = false; console.log(`[agentcore] coder exited code=${code}`); });
       child.unref();
-      reply(res, 202, { accepted: true, sessionId: req.headers["x-amzn-bedrock-agentcore-runtime-session-id"] || "" });
+      reply(res, 202, { accepted: true });
     } catch (err) {
       console.error("[agentcore] coder setup failed:", err.message);
       reply(res, 500, { error: "coder setup failed" });

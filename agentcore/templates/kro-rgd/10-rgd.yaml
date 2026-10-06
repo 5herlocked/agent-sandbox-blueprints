@@ -98,10 +98,6 @@ spec:
           lifecycleConfiguration:
             idleRuntimeSessionTimeout: ${schema.spec.lifecycle.idleRuntimeSessionTimeout}
             maxLifetime: ${schema.spec.lifecycle.maxLifetime}
-          environmentVariables:
-            USE_BEDROCK: "1"
-            AWS_REGION: ${schema.spec.region}
-            WORKSPACE: /tmp/workspace
 ---
 # ONE platform instance. Run sessions are disposable and created through Invoke,
 # not through AgentRuntimeEndpoint or separate Kubernetes objects.
