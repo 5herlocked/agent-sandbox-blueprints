@@ -87,9 +87,12 @@ try the bare-metal fallback pool.
 
 ### Optional: the AWS review agents
 
-`gates.securityAgent` / `gates.devopsAgent` are external GitHub Apps tied to specific AWS
-accounts. They are **off by default** so the blueprint works without them — the holdout
-gate and deploy test still exercise the full review loop.
+`securityAgent` and `devopsAgent` use external GitHub Apps tied to specific AWS
+accounts; both flags default to false. Set `review.enabled: false` at the top
+level of your example's gitignored `values.yaml` until the Apps are installed:
+the master review switch defaults to true, and leaving it on adds DAG tasks
+that wait for absent App verdicts. Apply the same override under
+`dark-factory-shared:` for shared values. Holdout can run without either App.
 
 ## Cost
 
