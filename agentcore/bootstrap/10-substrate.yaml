@@ -20,6 +20,7 @@ spec:
     helm:
       releaseName: agentcore
       valuesObject:
+        namespace: ${AGENTCORE_NAMESPACE}
         agentcore:
           enabled: true
           accountId: "${ACCOUNT_ID}"
