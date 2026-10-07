@@ -172,7 +172,6 @@ kubectl logs -n argo-events -l sensor-name=dark-factory --tail=200 \
 
 **Workaround (proven):** submit `df-iterate` directly with the same posted
 comment as `comment-body`. Workflow `df-iterate-6026182660` submitted
-`df-run-agentcore-13-i1`, which Succeeded on a new head for
-[PR #14](https://github.com/5herlocked/dark-factory-sandbox/pull/14), with
-implementation and holdout statuses green. This proves the base64 fix-round
+`df-run-agentcore-13-i1`, which Succeeded on a new head with implementation and
+holdout statuses green. This proves the base64 fix-round
 path, **not** the automatic webhook trigger or the plain `iterateNote` fallback.

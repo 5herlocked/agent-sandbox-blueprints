@@ -56,7 +56,7 @@ from suspend is occasionally flaky, mitigated by the recreate-fallback) and the 
 | --- | --- | --- | --- | --- |
 | Kata | #137 | — | ~**2 min** | pre-warmed pod, instant claim |
 | Lambda | #135 | #136 | ~**2.5 min** (20:53:03 → 20:55:35) | native `df-run-lambda`, RunMicrovm cold-start |
-| AgentCore VPC | [#9](https://github.com/5herlocked/dark-factory-sandbox/issues/9) | [#10](https://github.com/5herlocked/dark-factory-sandbox/pull/10) | **2 min** (20:58:55 → 21:00:55 UTC) | Different issue; workflow 20:58:58 → 21:02:15 (3m17s), implementation + holdout SUCCESS |
+| AgentCore VPC | — | — | **2 min** (20:58:55 → 21:00:55 UTC) | Different issue; workflow 20:58:58 → 21:02:15 (3m17s), implementation + holdout SUCCESS |
 
 **Kata vs Lambda Δ ≈ 30–90s** — the MicroVM cold-start (`RunMicrovm` → RUNNING → `/run`) vs Kata's pre-warmed pod
 claim. Note the MicroVM-native `df-run-lambda` is **faster than the old bridge path** (~3.7 min):
