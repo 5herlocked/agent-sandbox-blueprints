@@ -47,7 +47,7 @@ tasks:
     cmds:
       - |
         missing=""
-        for t in terraform kubectl aws helm task envsubst; do
+        for t in terraform kubectl aws helm task envsubst yq; do
           command -v "$t" >/dev/null 2>&1 || missing="$missing $t"
         done
         if [ -n "$missing" ]; then
@@ -152,8 +152,20 @@ tasks:
       - echo "✓ Lambda MicroVM substrate applied"
 
   agentcore:
-    desc: Add AgentCore Runtime (publish a digest-pinned arm64 image first)
+    desc: Add the AgentCore Runtime substrate (builds + pushes the arm64 host image when needed)
     cmds:
+      # One command like `task kata` / `task lambda`. The runtime is pinned to an
+      # image DIGEST, so the image must exist before the bootstrap renders. If
+      # AGENTCORE_IMAGE is not given, publish it now and record the digest in
+      # agentcore/.image-uri (gitignored); apply-bootstrap and agentcore-v2 read
+      # that file when the variable is empty.
+      - |
+        set -euo pipefail
+        if [ -z '{{.AGENTCORE_IMAGE | default ""}}' ]; then
+          task agentcore-image
+        else
+          printf '%s\n' '{{.AGENTCORE_IMAGE}}' > agentcore/.image-uri
+        fi
       - task: apply-bootstrap
         vars: { DIR: agentcore/bootstrap }
       - task: agentcore-v2
@@ -172,7 +184,7 @@ tasks:
         echo "Publishing arm64 AgentCore host from $REPO:$TAG (revision $REVISION)"
         URI="$(REGION='{{.REGION}}' IMAGE_NAME="$REPO" CODER_IMAGE="$REPO:$TAG" bash agentcore/image/publish.sh "$REVISION" | tail -n 1)"
         echo "Digest-pinned image: $URI"
-        echo "Next: AGENTCORE_IMAGE=$URI task agentcore"
+        printf '%s\n' "$URI" > agentcore/.image-uri
 
   agentcore-v2:
     desc: Set the ACK-created AgentCore runtime to V2 (idempotent)
@@ -186,6 +198,7 @@ tasks:
         source agentcore/network.sh
         WANT='{{.AGENTCORE_PLATFORM_VERSION | default "V2"}}'
         WANT_IMAGE='{{.AGENTCORE_IMAGE | default ""}}'
+        [ -n "$WANT_IMAGE" ] || WANT_IMAGE="$(cat agentcore/.image-uri 2>/dev/null || true)"
         echo "Waiting for AgentCoreSandbox {{.AGENTCORE_NAMESPACE}}/{{.AGENTCORE_SANDBOX}} runtime ID"
         ID=''
         for i in $(seq 1 240); do
@@ -264,7 +277,8 @@ tasks:
 
         if [ '{{.DIR}}' = agentcore/bootstrap ]; then
           export AGENTCORE_IMAGE_URI='{{.AGENTCORE_IMAGE | default ""}}'
-          [ -n "$AGENTCORE_IMAGE_URI" ] || { echo 'ERROR: set AGENTCORE_IMAGE=<digest-pinned-URI> (first run task agentcore-image)' >&2; exit 1; }
+          [ -n "$AGENTCORE_IMAGE_URI" ] || AGENTCORE_IMAGE_URI="$(cat ../../agentcore/.image-uri 2>/dev/null || true)"
+          [ -n "$AGENTCORE_IMAGE_URI" ] || { echo 'ERROR: no AgentCore image; run task agentcore (or task agentcore-image)' >&2; exit 1; }
           [[ "$AGENTCORE_IMAGE_URI" =~ @sha256:[a-f0-9]{64}$ ]] || { echo 'ERROR: AGENTCORE_IMAGE must be an ECR digest-pinned URI (@sha256:...)' >&2; exit 1; }
           export AGENTCORE_NETWORK_MODE='{{.AGENTCORE_NETWORK_MODE | default "PUBLIC"}}'
           source ../../agentcore/network.sh

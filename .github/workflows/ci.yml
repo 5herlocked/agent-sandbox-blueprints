@@ -61,5 +61,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # ubuntu-latest ships mikefarah yq v4 today; pin our own copy so a runner
+      # image change cannot turn this job into a silent no-op.
+      - uses: mikefarah/yq@v4.52.4
       - name: examples/*/defaults.yaml match examples/_shared/values.yaml
-        run: scripts/check-values-sync.sh
+        run: |
+          yq --version
+          scripts/check-values-sync.sh
