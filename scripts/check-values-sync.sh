@@ -27,6 +27,7 @@ normalise() { # file  drop-keys...
   yq -o=json -P "$expr" "$file" | yq -o=json 'sort_keys(..)'
 }
 
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 fail=0
 for ex in "${examples[@]}"; do
   drop=(agentcore dark-factory-shared)
@@ -34,11 +35,11 @@ for ex in "${examples[@]}"; do
   if diff -u \
        <(normalise "$shared" "${drop[@]}") \
        <(normalise "examples/$ex/defaults.yaml" "${drop[@]}") \
-       > "/tmp/values-sync-$ex.diff"; then
+       > "$tmp/$ex.diff"; then
     echo "✓ examples/$ex/defaults.yaml matches _shared on common keys"
   else
     echo "✗ examples/$ex/defaults.yaml differs from _shared:"
-    sed 's/^/    /' "/tmp/values-sync-$ex.diff"
+    sed 's/^/    /' "$tmp/$ex.diff"
     fail=1
   fi
 done
