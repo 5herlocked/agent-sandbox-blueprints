@@ -409,6 +409,7 @@ tasks:
       - task: lint:leaks
       - task: lint:tasks
       - task: lint:deps
+      - task: lint:values
       - task: lint:render
 
   lint:tf:
@@ -534,6 +535,11 @@ tasks:
           fi
         done
         exit $fail
+
+  lint:values:
+    desc: Fail if an example's defaults.yaml drifts from examples/_shared/values.yaml
+    cmds:
+      - scripts/check-values-sync.sh
 
   lint:deps:
     desc: Fail if the committed _shared subchart archive is stale

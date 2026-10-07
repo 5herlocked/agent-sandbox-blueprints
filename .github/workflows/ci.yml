@@ -54,40 +54,12 @@ jobs:
       - name: Every chart renders
         run: task lint:render
 
-  # Shared values must match in all three examples. AgentCore has different
-  # substrate-only keys; compare the common values as YAML, not raw bytes.
+  # Each example carries a copy of the shared values tree; keep the copies in
+  # sync on the keys they share. Logic lives in scripts/check-values-sync.sh so
+  # `task lint:values` runs the same check locally.
   values-in-sync:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: examples/_shared/values.yaml matches all three defaults.yaml
-        run: |
-          set -euo pipefail
-          python3 -m venv /tmp/asb-ci-yaml
-          /tmp/asb-ci-yaml/bin/pip install --disable-pip-version-check PyYAML==6.0.2
-          /tmp/asb-ci-yaml/bin/python - <<'PY'
-          import sys
-          import yaml
-
-          with open('examples/_shared/values.yaml') as f:
-              shared = yaml.safe_load(f)
-          for key in ('agentcore', 'dark-factory-shared'):
-              shared.pop(key, None)
-          failed = False
-          for ex in ('dark-factory-kata', 'dark-factory-lambda', 'dark-factory-agentcore'):
-              with open(f'examples/{ex}/defaults.yaml') as f:
-                  values = yaml.safe_load(f)
-              for key in ('agentcore', 'dark-factory-shared'):
-                  values.pop(key, None)
-              if ex == 'dark-factory-agentcore':
-                  values.pop('microvm', None)
-                  common = {key: value for key, value in shared.items() if key != 'microvm'}
-              else:
-                  common = shared
-              if values == common:
-                  print(f'✓ examples/{ex}/defaults.yaml common values in sync')
-              else:
-                  print(f'✗ examples/{ex}/defaults.yaml common values differ from _shared')
-                  failed = True
-          sys.exit(failed)
-          PY
+      - name: examples/*/defaults.yaml match examples/_shared/values.yaml
+        run: scripts/check-values-sync.sh
