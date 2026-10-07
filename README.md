@@ -55,7 +55,7 @@ flowchart TB
 
     subgraph PIPE["examples/ — Dark Factory pipeline"]
         SENSOR["Argo Events<br/>sensor"]
-         WF["Argo Workflows<br/>df-run / df-run-lambda / df-run-agentcore"]
+        WF["Argo Workflows<br/>df-run / df-run-lambda / df-run-agentcore"]
         GATES["holdout · deploy-test<br/>security · devops"]
     end
 
@@ -99,7 +99,7 @@ agentcore/          AgentCore Runtime substrate: ACK controller, KRO graph, arm6
 examples/
   dark-factory-kata/    Run the pattern on Kata
   dark-factory-lambda/  Run the pattern on Lambda MicroVM
-  dark-factory-agentcore/            Run the pattern on AgentCore Runtime
+  dark-factory-agentcore/  Run the pattern on AgentCore Runtime
 docs/               Architecture, substrate comparison, diagrams, prerequisites, troubleshooting
 ```
 
@@ -133,8 +133,7 @@ task up          # terraform apply → EKS + Karpenter + Managed ArgoCD/ACK/KRO,
 ```bash
 task kata        # nested-virt Karpenter pools + kata-deploy (clh/qemu/fc) + sandbox templates
 task lambda      # lambdamicrovms ACK controller + KRO graph + hook-server image + shim bridge
-task agentcore-image   # push arm64 host image, prints a digest-pinned ECR URI
-AGENTCORE_IMAGE=<repo@sha256:digest> task agentcore  # ACK + KRO runtime; idempotent V2 flip
+task agentcore   # Managed ACK + KRO runtime, V2 flip; builds + pushes the arm64 host image on first run
 ```
 
 ### 4 — Run the Dark Factory
@@ -167,7 +166,7 @@ task down        # destroys everything, including the sandboxes and node pools
 | **Scale to zero** | Node pool consolidates when idle | **VM suspends between rounds** | Coder session stops each round; runtime remains provisioned |
 | **Persistent workspace** | ✅ Volume-backed | ❌ Read-only rootfs (`/tmp` only) | ❌ Fresh `/tmp` workspace each round; GitHub holds state |
 | **GPU** | ✅ via `kata-qemu` (VFIO) | ❌ | ❌ In this microVM variant; ACRI is [blocked by the ACK SDK model](docs/ROADMAP.md) |
-| **Maturity** | Production-ready | Preview / pre-GA | Not yet live-verified in this blueprint |
+| **Maturity** | Production-ready | Preview / pre-GA | GA service; live-verified here (PUBLIC + VPC, V2, first run, fix round, label trigger — see [SUBSTRATES.md](docs/SUBSTRATES.md)) |
 
 Full comparison, benchmark timings, and the VMM capability matrix:
 **[docs/SUBSTRATES.md](docs/SUBSTRATES.md)**
