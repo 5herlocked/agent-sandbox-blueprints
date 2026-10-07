@@ -25,3 +25,6 @@ examples/dark-factory-kata/values.yaml
 examples/dark-factory-lambda/values.yaml
 examples/dark-factory-agentcore/values.yaml
 tfplan
+
+# Digest of the last published AgentCore host image (written by task agentcore-image).
+agentcore/.image-uri

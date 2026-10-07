@@ -164,11 +164,12 @@ and silently mangles the tag into `...coderatest`.
 needs editing — but build **before** `task kata`, or warm-pool members land in
 `ImagePullBackOff`.
 
-For AgentCore Runtime, build the `coder_microvm` arm64 base image above before
-publishing its wrapper. Run `task agentcore-image`; it reads the arm64 ECR repo
-from Terraform, pushes the host and prints a digest-pinned URI. Then run
-`AGENTCORE_IMAGE=<printed-uri> task agentcore`. The digest is required: changing
-only an image tag does not update the ACK runtime.
+For AgentCore Runtime, build the `coder_microvm` arm64 base image above first.
+`task agentcore` then publishes the host wrapper on top of it (`task
+agentcore-image`, run for you when `AGENTCORE_IMAGE` is unset) and records the
+digest-pinned URI in the gitignored `agentcore/.image-uri`. To deploy a specific
+image instead, pass `AGENTCORE_IMAGE=<repo@sha256:...> task agentcore`. The
+digest is required: changing only an image tag does not update the ACK runtime.
 
 After ACK creates the runtime, `task agentcore` calls `task agentcore-v2` to
 read back its current artifact, role, network, protocol, lifecycle, and env;

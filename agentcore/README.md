@@ -30,6 +30,10 @@ Managed ACK capability on the cluster ships the `bedrockagentcorecontrol` CRDs
 for **linux/arm64** before building this wrapper. AgentCore V2 is available in
 `us-east-1`, `us-east-2`, `us-west-2`, `eu-west-1`, and `ap-northeast-1`.
 
+`task agentcore` does this for you (it runs `task agentcore-image` when
+`AGENTCORE_IMAGE` is unset and records the digest in `agentcore/.image-uri`).
+By hand:
+
 ```bash
 cd agentcore/image
 REGION=us-west-2 \
