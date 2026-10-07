@@ -94,7 +94,7 @@ spec:
               failed: true
               error: true
 {{- if .Values.holdout.enabled }}
-          # P2 — holdout gate: hidden scenarios + a distinct Haiku judge.
+          # P2 — holdout gate: hidden scenarios + a different-family judge.
           - name: holdout-gate
             template: holdout-gate
             dependencies: [drive-coder]
@@ -311,8 +311,8 @@ spec:
     # ---- 2b. Holdout gate (P2) — train/test separation for code ----
     # Runs on the HUB (a trusted step, NOT the Kata VM). Checks out the coder's
     # PR branch, diffs it vs base, then runs evaluate.js: each hidden scenario
-    # gets its executable test run against the built code AND a distinct
-    # Haiku judge vote (2-of-3). Gate = passRatio >= threshold. The hidden
+    # gets its executable test run against the built code AND a different-
+    # family judge vote (2-of-3). Gate = passRatio >= threshold. The hidden
     # scenarios come from the df-holdout-* ConfigMaps mounted here — they are
     # NEVER mounted into the sandbox, so the coder cannot see or edit them.
     # v1 is advisory: the gate result is posted as the dark-factory/holdout commit

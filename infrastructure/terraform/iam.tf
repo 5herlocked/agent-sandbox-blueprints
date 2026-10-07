@@ -61,14 +61,16 @@ resource "aws_iam_role_policy" "llm_gateway_bedrock" {
         "bedrock:InvokeModel",
         "bedrock:InvokeModelWithResponseStream",
       ]
-      # Scoped to Anthropic foundation models and the cross-region inference
-      # profiles. BOTH the coder (claude-sonnet) and the holdout judge
-      # (holdout.judgeModel, claude-haiku) must fall inside this list: a judge
-      # model outside it gets a 403 that evaluate.js reports as "judge=0/3",
-      # even when tests pass. Widen deliberately if you switch families.
+      # Two model families, on purpose: Anthropic for the coder and Amazon Nova
+      # for the holdout judge (holdout.judgeModel), which must be a different
+      # family from the coder. A judge model outside this list gets a 403 that
+      # evaluate.js can only report as "judge=0/3" even when every test passes.
+      # Widen deliberately if you switch either family.
       Resource = [
         "arn:${data.aws_partition.current.partition}:bedrock:*::foundation-model/anthropic.*",
+        "arn:${data.aws_partition.current.partition}:bedrock:*::foundation-model/amazon.nova*",
         "arn:${data.aws_partition.current.partition}:bedrock:*:${local.account_id}:inference-profile/us.anthropic.*",
+        "arn:${data.aws_partition.current.partition}:bedrock:*:${local.account_id}:inference-profile/us.amazon.nova*",
       ]
     }]
   })
